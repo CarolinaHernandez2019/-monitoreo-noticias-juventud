@@ -17,8 +17,7 @@ from bs4 import BeautifulSoup
 
 import json
 
-from config import (CATEGORIAS, CIUDADES_COLOMBIA, EXCEL_PATH, FUENTES,
-                     HEADERS, PAISES_EXCLUIDOS, TERMINOS_JUVENTUD)
+from config import CIUDADES_COLOMBIA, EXCEL_PATH, FUENTES, HEADERS, TERMINOS_JUVENTUD
 
 
 def contiene_terminos_juventud(texto: str) -> bool:
@@ -64,56 +63,6 @@ def obtener_resumen(texto: str, max_chars: int = 250) -> str:
     return texto[:max_chars].rsplit(' ', 1)[0] + "..."
 
 
-def es_noticia_colombia(texto: str, url: str = "") -> bool:
-    """Verifica que la noticia sea de Colombia y no internacional.
-    Descarta noticias que mencionan países/ciudades extranjeras
-    sin mencionar Colombia o alguna ciudad colombiana.
-    """
-    if not texto:
-        return False
-    texto_lower = texto.lower()
-    url_lower = url.lower()
-
-    # Si la URL es de un medio colombiano conocido, se acepta
-    medios_colombianos = ['eltiempo.com', 'elespectador.com', 'bluradio.com',
-                          'noticiascaracol.com', 'pulzo.com', 'diarioadn.co',
-                          'alertabogota.com', 'redmas.com.co', '.gov.co',
-                          '.edu.co', '.org.co']
-    es_medio_colombiano = any(m in url_lower for m in medios_colombianos)
-
-    # Verificar si menciona algún país/ciudad excluida
-    menciona_extranjero = any(pais in texto_lower for pais in PAISES_EXCLUIDOS)
-
-    # Verificar si menciona Colombia o alguna ciudad colombiana
-    menciona_colombia = any(ciudad in texto_lower for ciudad in CIUDADES_COLOMBIA)
-
-    # Si es medio colombiano y no menciona lugar extranjero, se acepta
-    if es_medio_colombiano and not menciona_extranjero:
-        return True
-
-    # Si menciona lugar extranjero, solo se acepta si también menciona Colombia
-    if menciona_extranjero:
-        return menciona_colombia
-
-    # Si no menciona ni extranjero ni Colombia, aceptar solo si es medio colombiano
-    return es_medio_colombiano or menciona_colombia
-
-
-def clasificar_categoria(texto: str) -> str:
-    """Clasifica la noticia en una categoría temática según palabras clave.
-    Se asigna la primera categoría cuyas palabras aparezcan en el texto.
-    """
-    if not texto:
-        return "Otra"
-    texto_lower = texto.lower()
-
-    for categoria, palabras in CATEGORIAS.items():
-        if any(palabra in texto_lower for palabra in palabras):
-            return categoria
-
-    return "Otra"
-
-
 def obtener_tipo_fuente(nombre_fuente: str) -> str:
     """Obtiene el tipo de fuente (gratuito/diario pago) desde la configuración."""
     if nombre_fuente in FUENTES:
@@ -123,7 +72,7 @@ def obtener_tipo_fuente(nombre_fuente: str) -> str:
 
 def cargar_excel_existente() -> pd.DataFrame:
     """Carga el Excel existente o crea uno nuevo."""
-    columnas = ["fecha", "titulo", "fuente", "tipo_fuente", "categoria", "ciudad", "bogota", "url", "resumen"]
+    columnas = ["fecha", "titulo", "fuente", "tipo_fuente", "ciudad", "url", "resumen"]
 
     if os.path.exists(EXCEL_PATH):
         try:
@@ -134,13 +83,6 @@ def cargar_excel_existente() -> pd.DataFrame:
             # Agregar columna tipo_fuente si no existe
             if 'tipo_fuente' not in df.columns:
                 df['tipo_fuente'] = df['fuente'].apply(obtener_tipo_fuente)
-            # Agregar columna categoria si no existe
-            if 'categoria' not in df.columns:
-                df['categoria'] = df.apply(
-                    lambda r: clasificar_categoria(f"{r.get('titulo', '')} {r.get('resumen', '')}"), axis=1)
-            # Agregar columna bogota si no existe
-            if 'bogota' not in df.columns:
-                df['bogota'] = df['ciudad'].apply(lambda c: "Sí" if c == "Bogotá" else "No")
             print(f"  Cargadas {len(df)} noticias existentes")
             return df
         except Exception as e:
@@ -153,7 +95,7 @@ def guardar_excel(df: pd.DataFrame):
     """Guarda el DataFrame en Excel."""
     os.makedirs(os.path.dirname(EXCEL_PATH), exist_ok=True)
     # Asegurar orden de columnas
-    columnas = ["fecha", "titulo", "fuente", "tipo_fuente", "categoria", "ciudad", "bogota", "url", "resumen"]
+    columnas = ["fecha", "titulo", "fuente", "tipo_fuente", "ciudad", "url", "resumen"]
     df = df[columnas]
     df.to_excel(EXCEL_PATH, index=False)
     print(f"\nGuardadas {len(df)} noticias en {EXCEL_PATH}")
@@ -168,33 +110,6 @@ def hacer_request(url: str, timeout: int = 15) -> requests.Response | None:
     except requests.RequestException as e:
         print(f"    Error en request a {url}: {e}")
         return None
-
-
-def crear_noticia(titulo: str, fuente: str, ciudad: str, url: str, resumen: str) -> dict | None:
-    """Crea un dict de noticia con todos los campos, incluyendo categoría y filtro Colombia.
-    Retorna None si la noticia no es de Colombia (se descarta).
-    """
-    texto_completo = f"{titulo} {resumen}"
-
-    # Filtro geográfico: solo noticias de Colombia
-    if not es_noticia_colombia(texto_completo, url):
-        return None
-
-    ciudad_detectada = ciudad if ciudad != "auto" else detectar_ciudad(texto_completo)
-    es_bogota = "Sí" if ciudad_detectada == "Bogotá" else "No"
-    categoria = clasificar_categoria(texto_completo)
-
-    return {
-        'fecha': datetime.now().strftime('%Y-%m-%d'),
-        'titulo': limpiar_texto(titulo),
-        'fuente': fuente,
-        'tipo_fuente': obtener_tipo_fuente(fuente),
-        'categoria': categoria,
-        'ciudad': ciudad_detectada,
-        'bogota': es_bogota,
-        'url': url,
-        'resumen': obtener_resumen(resumen) if resumen else ''
-    }
 
 
 def extraer_json_desde_html(texto_html: str, patron_inicio: str) -> dict | None:
@@ -257,11 +172,18 @@ def scrape_bluradio() -> list[dict]:
             resumen_tag = art.find('p')
             resumen = resumen_tag.get_text(strip=True) if resumen_tag else ''
 
-            # FILTRO: términos de juventud + Colombia
+            # FILTRO ESTRICTO: debe contener términos de juventud
             if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
-                noticia = crear_noticia(titulo, 'Blu Radio', 'auto', href, resumen)
-                if noticia:
-                    noticias.append(noticia)
+                texto_completo = f"{titulo} {resumen}"
+                noticias.append({
+                    'fecha': datetime.now().strftime('%Y-%m-%d'),
+                    'titulo': limpiar_texto(titulo),
+                    'fuente': 'Blu Radio',
+                    'tipo_fuente': obtener_tipo_fuente('Blu Radio'),
+                    'ciudad': detectar_ciudad(texto_completo),
+                    'url': href,
+                    'resumen': obtener_resumen(resumen) if resumen else ''
+                })
         except Exception:
             continue
 
@@ -298,11 +220,18 @@ def scrape_caracol() -> list[dict]:
             resumen_tag = art.find('p')
             resumen = resumen_tag.get_text(strip=True) if resumen_tag else ''
 
-            # FILTRO: términos de juventud + Colombia
+            # FILTRO ESTRICTO
             if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
-                noticia = crear_noticia(titulo, 'Noticias Caracol', 'auto', href, resumen)
-                if noticia:
-                    noticias.append(noticia)
+                texto_completo = f"{titulo} {resumen}"
+                noticias.append({
+                    'fecha': datetime.now().strftime('%Y-%m-%d'),
+                    'titulo': limpiar_texto(titulo),
+                    'fuente': 'Noticias Caracol',
+                    'tipo_fuente': obtener_tipo_fuente('Noticias Caracol'),
+                    'ciudad': detectar_ciudad(texto_completo),
+                    'url': href,
+                    'resumen': obtener_resumen(resumen) if resumen else ''
+                })
         except Exception:
             continue
 
@@ -352,11 +281,17 @@ def scrape_pulzo() -> list[dict]:
             # Pulzo no tiene resumen en las tarjetas
             resumen = titulo
 
-            # FILTRO: términos de juventud + Colombia
+            # FILTRO ESTRICTO
             if contiene_terminos_juventud(titulo):
-                noticia = crear_noticia(titulo, 'Pulzo', 'auto', href, resumen)
-                if noticia:
-                    noticias.append(noticia)
+                noticias.append({
+                    'fecha': datetime.now().strftime('%Y-%m-%d'),
+                    'titulo': limpiar_texto(titulo),
+                    'fuente': 'Pulzo',
+                    'tipo_fuente': obtener_tipo_fuente('Pulzo'),
+                    'ciudad': detectar_ciudad(titulo),
+                    'url': href,
+                    'resumen': obtener_resumen(resumen)
+                })
         except Exception:
             continue
 
@@ -391,11 +326,21 @@ def scrape_infobae() -> list[dict]:
             if not titulo or not href:
                 continue
 
-            # FILTRO: términos de juventud + Colombia
+            # Filtrar solo noticias de Colombia (por URL o contenido)
+            es_colombia = '/colombia/' in href.lower()
+
+            # FILTRO ESTRICTO: términos de juventud + preferencia por Colombia
             if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
-                noticia = crear_noticia(titulo, 'Infobae', 'auto', href, resumen)
-                if noticia:
-                    noticias.append(noticia)
+                texto_completo = f"{titulo} {resumen}"
+                noticias.append({
+                    'fecha': datetime.now().strftime('%Y-%m-%d'),
+                    'titulo': limpiar_texto(titulo),
+                    'fuente': 'Infobae',
+                    'tipo_fuente': obtener_tipo_fuente('Infobae'),
+                    'ciudad': detectar_ciudad(texto_completo),
+                    'url': href,
+                    'resumen': obtener_resumen(resumen) if resumen else ''
+                })
         except Exception:
             continue
 
@@ -430,15 +375,22 @@ def scrape_alertabogota() -> list[dict]:
             resumen_tag = art.find('p')
             resumen = resumen_tag.get_text(strip=True) if resumen_tag else ''
 
-            # FILTRO: términos de juventud + Colombia
+            # FILTRO ESTRICTO
             if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
                 texto_completo = f"{titulo} {resumen}"
+                # Para Alerta Bogotá, default es Bogotá
                 ciudad = detectar_ciudad(texto_completo)
                 if ciudad == "Sin identificar":
                     ciudad = "Bogotá"
-                noticia = crear_noticia(titulo, 'Alerta Bogotá', ciudad, href, resumen)
-                if noticia:
-                    noticias.append(noticia)
+                noticias.append({
+                    'fecha': datetime.now().strftime('%Y-%m-%d'),
+                    'titulo': limpiar_texto(titulo),
+                    'fuente': 'Alerta Bogotá',
+                    'tipo_fuente': obtener_tipo_fuente('Alerta Bogotá'),
+                    'ciudad': ciudad,
+                    'url': href,
+                    'resumen': obtener_resumen(resumen) if resumen else ''
+                })
         except Exception:
             continue
 
@@ -473,11 +425,18 @@ def scrape_redmas() -> list[dict]:
             resumen_tag = art.find('p')
             resumen = resumen_tag.get_text(strip=True) if resumen_tag else ''
 
-            # FILTRO: términos de juventud + Colombia
+            # FILTRO ESTRICTO
             if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
-                noticia = crear_noticia(titulo, 'Red+', 'auto', href, resumen)
-                if noticia:
-                    noticias.append(noticia)
+                texto_completo = f"{titulo} {resumen}"
+                noticias.append({
+                    'fecha': datetime.now().strftime('%Y-%m-%d'),
+                    'titulo': limpiar_texto(titulo),
+                    'fuente': 'Red+',
+                    'tipo_fuente': obtener_tipo_fuente('Red+'),
+                    'ciudad': detectar_ciudad(texto_completo),
+                    'url': href,
+                    'resumen': obtener_resumen(resumen) if resumen else ''
+                })
         except Exception:
             continue
 
@@ -512,11 +471,18 @@ def scrape_diarioadn() -> list[dict]:
             resumen_tag = art.find('p')
             resumen = resumen_tag.get_text(strip=True) if resumen_tag else ''
 
-            # FILTRO: términos de juventud + Colombia
+            # FILTRO ESTRICTO
             if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
-                noticia = crear_noticia(titulo, 'Diario ADN', 'auto', href, resumen)
-                if noticia:
-                    noticias.append(noticia)
+                texto_completo = f"{titulo} {resumen}"
+                noticias.append({
+                    'fecha': datetime.now().strftime('%Y-%m-%d'),
+                    'titulo': limpiar_texto(titulo),
+                    'fuente': 'Diario ADN',
+                    'tipo_fuente': obtener_tipo_fuente('Diario ADN'),
+                    'ciudad': detectar_ciudad(texto_completo),
+                    'url': href,
+                    'resumen': obtener_resumen(resumen) if resumen else ''
+                })
         except Exception:
             continue
 
@@ -565,11 +531,18 @@ def scrape_eltiempo() -> list[dict]:
                 if not titulo or not href:
                     continue
 
-                # FILTRO: términos de juventud + Colombia
+                # FILTRO ESTRICTO
                 if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
-                    noticia = crear_noticia(titulo, 'El Tiempo', 'auto', href, resumen)
-                    if noticia:
-                        noticias.append(noticia)
+                    texto_completo = f"{titulo} {resumen}"
+                    noticias.append({
+                        'fecha': datetime.now().strftime('%Y-%m-%d'),
+                        'titulo': limpiar_texto(titulo),
+                        'fuente': 'El Tiempo',
+                        'tipo_fuente': obtener_tipo_fuente('El Tiempo'),
+                        'ciudad': detectar_ciudad(texto_completo),
+                        'url': href,
+                        'resumen': obtener_resumen(resumen) if resumen else ''
+                    })
         except (json.JSONDecodeError, TypeError):
             continue
 
@@ -608,11 +581,18 @@ def scrape_elespectador() -> list[dict]:
 
                 href = urljoin("https://www.elespectador.com", url_relativa)
 
-                # FILTRO: términos de juventud + Colombia
+                # FILTRO ESTRICTO
                 if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
-                    noticia = crear_noticia(titulo, 'El Espectador', 'auto', href, resumen)
-                    if noticia:
-                        noticias.append(noticia)
+                    texto_completo = f"{titulo} {resumen}"
+                    noticias.append({
+                        'fecha': datetime.now().strftime('%Y-%m-%d'),
+                        'titulo': limpiar_texto(titulo),
+                        'fuente': 'El Espectador',
+                        'tipo_fuente': obtener_tipo_fuente('El Espectador'),
+                        'ciudad': detectar_ciudad(texto_completo),
+                        'url': href,
+                        'resumen': obtener_resumen(resumen) if resumen else ''
+                    })
             except Exception:
                 continue
 
@@ -676,12 +656,17 @@ def buscar_noticias_historicas() -> list[dict]:
                         except Exception:
                             pass
 
-                    # FILTRO: términos de juventud + Colombia
+                    # FILTRO ESTRICTO
                     if contiene_terminos_juventud(titulo):
-                        noticia = crear_noticia(titulo, fuente_original, 'auto', href, titulo)
-                        if noticia:
-                            noticia['fecha'] = fecha  # Usar la fecha real de publicación
-                            noticias.append(noticia)
+                        noticias.append({
+                            'fecha': fecha,
+                            'titulo': limpiar_texto(titulo),
+                            'fuente': fuente_original,
+                            'tipo_fuente': obtener_tipo_fuente(fuente_original),
+                            'ciudad': detectar_ciudad(titulo),
+                            'url': href,
+                            'resumen': obtener_resumen(titulo)
+                        })
                 except Exception:
                     continue
 

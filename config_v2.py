@@ -119,68 +119,6 @@ FUENTES = {
     },
 }
 
-# Categorías temáticas para clasificar cada noticia
-# Se asigna la primera categoría cuyas palabras clave aparezcan en el título o resumen
-CATEGORIAS = {
-    "Violencia": [
-        "homicidio", "asesinato", "asesinado", "muerte", "murió", "murio", "muerto",
-        "pelea", "arma", "disparos", "ataque", "pandilla", "sicario", "bala",
-        "apuñalado", "masacre", "crimen", "criminal", "violencia", "agresión",
-        "femicidio", "feminicidio", "riña",
-    ],
-    "Seguridad": [
-        "policía", "policia", "captura", "capturado", "detenido", "detención",
-        "judicializado", "robo", "hurto", "extorsión", "banda", "operativo",
-        "incautación", "allanamiento", "fuga",
-    ],
-    "Educación": [
-        "colegio", "colegios", "escuela", "escolar", "educación", "educacion",
-        "profesor", "profesora", "clase", "icfes", "universidad", "beca",
-        "matrícula", "deserción", "académico", "docente", "aula", "enseñanza",
-        "saber 11", "puntaje",
-    ],
-    "Protección": [
-        "abuso", "maltrato", "explotación", "reclutamiento", "desaparición",
-        "desaparecido", "desaparecida", "trata", "vulneración", "abandono",
-        "negligencia", "acoso", "bullying", "matoneo",
-    ],
-    "Salud": [
-        "salud", "hospital", "enfermedad", "droga", "sustancia", "adicción",
-        "mental", "suicidio", "embarazo", "nutrición", "desnutrición",
-        "vacuna", "discapacidad", "trastorno",
-    ],
-    "Empleo": [
-        "empleo", "trabajo", "desempleo", "laboral", "contratación",
-        "primer empleo", "oportunidad laboral", "vacante", "informalidad",
-    ],
-    "Política pública": [
-        "idipron", "icbf", "bienestar", "programa social", "subsidio",
-        "política pública", "política publica", "ley", "decreto", "proyecto de ley",
-        "concejo", "alcaldía", "gobernación", "plataforma juvenil",
-    ],
-    "Cultura y deporte": [
-        "deporte", "deportivo", "cultura", "cultural", "arte", "música",
-        "festival", "torneo", "competencia", "recreación", "olimpiada",
-    ],
-}
-
-# Palabras que indican que la noticia NO es de Colombia (filtro geográfico)
-PAISES_EXCLUIDOS = [
-    "londres", "london", "reino unido", "estados unidos", "españa",
-    "argentina", "méxico", "mexico", "chile", "santiago",
-    "perú", "peru", "lima", "brasil", "venezuela", "caracas", "chavista",
-    "ecuador", "quito", "guayaquil", "bolivia", "la paz",
-    "paraguay", "asunción", "uruguay", "montevideo",
-    "congo", "rusia", "moscú", "china", "beijing", "pekín",
-    "francia", "parís", "paris", "alemania", "berlín",
-    "italia", "roma", "japón", "tokio", "india",
-    "israel", "gaza", "palestina", "ucrania", "irán", "iran",
-    "siria", "egipto", "nigeria", "kenia", "sudáfrica",
-    "australia", "canadá", "nueva york", "washington",
-    "miami", "california", "texas", "florida",
-    "valencia cf",
-]
-
 # Ruta del archivo Excel
 EXCEL_PATH = "data/noticias.xlsx"
 
