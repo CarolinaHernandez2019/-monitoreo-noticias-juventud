@@ -42,16 +42,13 @@ st.markdown("""
 def cargar_datos() -> pd.DataFrame:
     """Carga los datos del Excel."""
     if not os.path.exists(EXCEL_PATH):
-        return pd.DataFrame(columns=["fecha", "titulo", "fuente", "tipo_fuente", "ciudad", "url", "resumen"])
+        return pd.DataFrame(columns=["fecha", "titulo", "fuente", "ciudad", "url", "resumen"])
 
     df = pd.read_excel(EXCEL_PATH)
     df['fecha'] = pd.to_datetime(df['fecha'], errors='coerce')
     # Asegurar que exista columna ciudad
     if 'ciudad' not in df.columns:
         df['ciudad'] = "Sin identificar"
-    # Asegurar que exista columna tipo_fuente
-    if 'tipo_fuente' not in df.columns:
-        df['tipo_fuente'] = "gratuito"
     return df
 
 
@@ -103,15 +100,6 @@ def main():
         default=ciudades_disponibles
     )
 
-    # Filtro por tipo de fuente (gratuito / diario pago)
-    st.sidebar.subheader("Tipo de fuente")
-    tipos_disponibles = sorted(df['tipo_fuente'].dropna().unique().tolist())
-    tipos_seleccionados = st.sidebar.multiselect(
-        "Seleccionar tipo",
-        options=tipos_disponibles,
-        default=tipos_disponibles
-    )
-
     # Filtro por fuente
     st.sidebar.subheader("Fuente")
     fuentes_disponibles = sorted(df['fuente'].unique().tolist())
@@ -141,10 +129,6 @@ def main():
             (df_filtrado['fecha'].dt.date >= fecha_inicio) &
             (df_filtrado['fecha'].dt.date <= fecha_fin)
         ]
-
-    # Filtro de tipo de fuente
-    if tipos_seleccionados:
-        df_filtrado = df_filtrado[df_filtrado['tipo_fuente'].isin(tipos_seleccionados)]
 
     # Filtro de ciudades
     if ciudades_seleccionadas:
@@ -291,7 +275,7 @@ def main():
 
     if not df_filtrado.empty:
         # Preparar tabla para mostrar
-        df_display = df_filtrado[['fecha', 'titulo', 'fuente', 'tipo_fuente', 'ciudad', 'url', 'resumen']].copy()
+        df_display = df_filtrado[['fecha', 'titulo', 'fuente', 'ciudad', 'url', 'resumen']].copy()
         df_display['fecha'] = df_display['fecha'].dt.strftime('%Y-%m-%d')
         df_display = df_display.sort_values('fecha', ascending=False)
 
@@ -301,7 +285,7 @@ def main():
         )
 
         # Renombrar columnas para mostrar
-        df_display.columns = ['Fecha', 'Título', 'Fuente', 'Tipo', 'Ciudad', 'Link', 'Resumen']
+        df_display.columns = ['Fecha', 'Título', 'Fuente', 'Ciudad', 'Link', 'Resumen']
 
         # Mostrar tabla con HTML
         st.markdown(

@@ -69,53 +69,35 @@ CIUDADES_COLOMBIA = {
     "colombia": "Colombia",
 }
 
-# Fuentes de noticias
-# tipo: "gratuito" = acceso libre, "diario pago" = tiene paywall (se scrapea lo visible)
+# Fuentes de noticias (sin El Tiempo ni El Espectador)
 FUENTES = {
     "Blu Radio": {
         "url": "https://www.bluradio.com/",
         "seccion_colombia": "https://www.bluradio.com/nacion",
-        "tipo": "gratuito",
     },
     "Noticias Caracol": {
         "url": "https://www.noticiascaracol.com/",
         "seccion_colombia": "https://www.noticiascaracol.com/colombia",
-        "tipo": "gratuito",
     },
     "Alerta Bogotá": {
         "url": "https://www.alertabogota.com/",
         "seccion_colombia": "https://www.alertabogota.com/",
-        "tipo": "gratuito",
     },
     "Red+": {
         "url": "https://redmas.com.co/",
         "seccion_colombia": "https://redmas.com.co/",
-        "tipo": "gratuito",
     },
     "Pulzo": {
         "url": "https://www.pulzo.com/",
         "seccion_colombia": "https://www.pulzo.com/nacion",
-        "tipo": "gratuito",
     },
     "Infobae": {
         "url": "https://www.infobae.com/",
         "seccion_colombia": "https://www.infobae.com/colombia/",
-        "tipo": "gratuito",
     },
     "Diario ADN": {
         "url": "https://www.diarioadn.co/",
         "seccion_colombia": "https://www.diarioadn.co/",
-        "tipo": "gratuito",
-    },
-    "El Tiempo": {
-        "url": "https://www.eltiempo.com/",
-        "seccion_colombia": "https://www.eltiempo.com/colombia",
-        "tipo": "diario pago",
-    },
-    "El Espectador": {
-        "url": "https://www.elespectador.com/",
-        "seccion_colombia": "https://www.elespectador.com/colombia/",
-        "tipo": "diario pago",
     },
 }
 
