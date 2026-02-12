@@ -15,8 +15,6 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
-import json
-
 from config import CIUDADES_COLOMBIA, EXCEL_PATH, FUENTES, HEADERS, TERMINOS_JUVENTUD
 
 
@@ -110,36 +108,6 @@ def hacer_request(url: str, timeout: int = 15) -> requests.Response | None:
     except requests.RequestException as e:
         print(f"    Error en request a {url}: {e}")
         return None
-
-
-def extraer_json_desde_html(texto_html: str, patron_inicio: str) -> dict | None:
-    """Extrae un objeto JSON embebido en el HTML usando conteo de llaves.
-    Necesario para sitios que usan Fusion/Arc (El Espectador, Infobae)
-    porque el JSON es minificado y el regex non-greedy falla.
-    """
-    match = re.search(patron_inicio, texto_html)
-    if not match:
-        return None
-
-    inicio_json = match.end()
-    # Buscar el inicio del objeto JSON
-    pos_llave = texto_html.find('{', inicio_json - 1)
-    if pos_llave == -1:
-        return None
-
-    # Contar llaves para encontrar el cierre correcto
-    contador = 0
-    for i in range(pos_llave, len(texto_html)):
-        if texto_html[i] == '{':
-            contador += 1
-        elif texto_html[i] == '}':
-            contador -= 1
-            if contador == 0:
-                try:
-                    return json.loads(texto_html[pos_llave:i + 1])
-                except json.JSONDecodeError:
-                    return None
-    return None
 
 
 # ============== SCRAPERS POR FUENTE ==============
@@ -239,10 +207,7 @@ def scrape_caracol() -> list[dict]:
 
 
 def scrape_pulzo() -> list[dict]:
-    """Scraper para Pulzo - sección nación.
-    Pulzo usa a.link-title como enlaces a artículos con h3 dentro.
-    Se filtran los autores (parent class container-autor-openingMain o href con /autor/).
-    """
+    """Scraper para Pulzo - sección nación."""
     noticias = []
     url = "https://www.pulzo.com/nacion"
 
@@ -251,46 +216,35 @@ def scrape_pulzo() -> list[dict]:
         return noticias
 
     soup = BeautifulSoup(response.text, 'lxml')
+    articulos = soup.find_all('article') or soup.find_all('div', class_=re.compile(r'article|card|item'))
 
-    # Buscar todos los enlaces con clase link-title (contienen los títulos)
-    enlaces_titulo = soup.find_all('a', class_='link-title')
-
-    for enlace in enlaces_titulo[:50]:
+    for art in articulos[:50]:
         try:
-            href = enlace.get('href', '')
-
-            # Filtrar enlaces de autor (contienen /autor/ en la URL)
-            if '/autor/' in href or not href:
+            link_tag = art.find('a', href=True)
+            if not link_tag:
                 continue
 
-            # Filtrar por clase del padre (los autores tienen container-autor-openingMain)
-            parent_classes = enlace.parent.get('class', []) if enlace.parent else []
-            if 'container-autor-openingMain' in parent_classes:
-                continue
-
+            href = link_tag.get('href', '')
             if not href.startswith('http'):
                 href = urljoin("https://www.pulzo.com", href)
 
-            # El título está en el h3 dentro del enlace
-            h3 = enlace.find('h3')
-            titulo = h3.get_text(strip=True) if h3 else enlace.get_text(strip=True)
+            titulo_tag = art.find(['h2', 'h3', 'h4']) or link_tag
+            titulo = titulo_tag.get_text(strip=True) if titulo_tag else ''
 
-            if not titulo or len(titulo) < 10:
-                continue
-
-            # Pulzo no tiene resumen en las tarjetas
-            resumen = titulo
+            resumen_tag = art.find('p')
+            resumen = resumen_tag.get_text(strip=True) if resumen_tag else ''
 
             # FILTRO ESTRICTO
-            if contiene_terminos_juventud(titulo):
+            if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
+                texto_completo = f"{titulo} {resumen}"
                 noticias.append({
                     'fecha': datetime.now().strftime('%Y-%m-%d'),
                     'titulo': limpiar_texto(titulo),
                     'fuente': 'Pulzo',
                     'tipo_fuente': obtener_tipo_fuente('Pulzo'),
-                    'ciudad': detectar_ciudad(titulo),
+                    'ciudad': detectar_ciudad(texto_completo),
                     'url': href,
-                    'resumen': obtener_resumen(resumen)
+                    'resumen': obtener_resumen(resumen) if resumen else ''
                 })
         except Exception:
             continue
@@ -299,37 +253,40 @@ def scrape_pulzo() -> list[dict]:
 
 
 def scrape_infobae() -> list[dict]:
-    """Scraper para Infobae Colombia.
-    Infobae es una SPA que carga contenido por JavaScript.
-    Se usa el feed RSS que tiene ~100 artículos recientes con títulos limpios.
-    """
+    """Scraper para Infobae Colombia."""
     noticias = []
-    url_rss = "https://www.infobae.com/arc/outboundfeeds/rss/"
+    url = "https://www.infobae.com/colombia/"
 
-    response = hacer_request(url_rss)
+    response = hacer_request(url)
     if not response:
         return noticias
 
-    soup = BeautifulSoup(response.text, 'xml')
-    items = soup.find_all('item')
+    soup = BeautifulSoup(response.text, 'lxml')
+    articulos = soup.find_all('a', class_=re.compile(r'feed-list-card|story-card'))
+    if not articulos:
+        articulos = soup.find_all('article') or soup.find_all('div', class_=re.compile(r'card|article'))
 
-    for item in items[:100]:
+    for art in articulos[:50]:
         try:
-            titulo_tag = item.find('title')
-            link_tag = item.find('link')
-            desc_tag = item.find('description')
+            if art.name == 'a':
+                href = art.get('href', '')
+                titulo_tag = art.find(['h2', 'h3', 'h4', 'span'])
+                resumen_tag = art.find('p')
+            else:
+                link_tag = art.find('a', href=True)
+                if not link_tag:
+                    continue
+                href = link_tag.get('href', '')
+                titulo_tag = art.find(['h2', 'h3', 'h4']) or link_tag
+                resumen_tag = art.find('p')
+
+            if not href.startswith('http'):
+                href = urljoin("https://www.infobae.com", href)
 
             titulo = titulo_tag.get_text(strip=True) if titulo_tag else ''
-            href = link_tag.get_text(strip=True) if link_tag else ''
-            resumen = desc_tag.get_text(strip=True) if desc_tag else ''
+            resumen = resumen_tag.get_text(strip=True) if resumen_tag else ''
 
-            if not titulo or not href:
-                continue
-
-            # Filtrar solo noticias de Colombia (por URL o contenido)
-            es_colombia = '/colombia/' in href.lower()
-
-            # FILTRO ESTRICTO: términos de juventud + preferencia por Colombia
+            # FILTRO ESTRICTO
             if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
                 texto_completo = f"{titulo} {resumen}"
                 noticias.append({
@@ -491,8 +448,8 @@ def scrape_diarioadn() -> list[dict]:
 
 def scrape_eltiempo() -> list[dict]:
     """Scraper para El Tiempo (diario pago) - sección Colombia.
-    El Tiempo usa Marfeel (renderiza todo con JavaScript).
-    Los artículos están disponibles como JSON-LD (schema.org) en el HTML inicial.
+    Extrae títulos y resúmenes visibles en la página de sección,
+    sin entrar al contenido completo detrás del paywall.
     """
     noticias = []
     url = "https://www.eltiempo.com/colombia"
@@ -503,47 +460,49 @@ def scrape_eltiempo() -> list[dict]:
 
     soup = BeautifulSoup(response.text, 'lxml')
 
-    # Extraer artículos del JSON-LD (datos estructurados para SEO)
-    scripts_jsonld = soup.find_all('script', type='application/ld+json')
+    # El Tiempo usa <article> con clases c-articulo--basico, c-articulo--detallado, etc.
+    articulos = soup.find_all('article', class_=re.compile(r'c-articulo'))
 
-    for script in scripts_jsonld:
+    for art in articulos[:50]:
         try:
-            if not script.string:
+            # El título está en <h3 class="c-articulo__titulo"> > <a class="c-articulo__titulo__txt">
+            titulo_tag = art.find('a', class_='c-articulo__titulo__txt')
+            if not titulo_tag:
+                titulo_tag = art.find(['h2', 'h3', 'h4'])
+            if not titulo_tag:
                 continue
-            datos = json.loads(script.string)
 
-            # Puede ser un solo artículo o una lista
-            if isinstance(datos, list):
-                articulos = datos
+            titulo = titulo_tag.get_text(strip=True)
+            href = titulo_tag.get('href', '')
+            if not href:
+                link_tag = art.find('a', href=True)
+                href = link_tag.get('href', '') if link_tag else ''
+            if not href:
+                continue
+            if not href.startswith('http'):
+                href = urljoin("https://www.eltiempo.com", href)
+
+            # El resumen está en <p class="c-articulo__resumen"> o dentro de un <a class="c-articulo__resumen-link">
+            resumen_tag = art.find('p', class_='c-articulo__resumen')
+            if resumen_tag:
+                resumen_link = resumen_tag.find('a', class_='c-articulo__resumen-link')
+                resumen = resumen_link.get_text(strip=True) if resumen_link else resumen_tag.get_text(strip=True)
             else:
-                articulos = [datos]
+                resumen = ''
 
-            for articulo in articulos:
-                tipo = articulo.get('@type', '')
-                # Solo artículos de noticias
-                if tipo not in ('ReportageNewsArticle', 'NewsArticle', 'Article'):
-                    continue
-
-                titulo = articulo.get('headline', '')
-                href = articulo.get('url', '')
-                resumen = articulo.get('description', '')
-
-                if not titulo or not href:
-                    continue
-
-                # FILTRO ESTRICTO
-                if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
-                    texto_completo = f"{titulo} {resumen}"
-                    noticias.append({
-                        'fecha': datetime.now().strftime('%Y-%m-%d'),
-                        'titulo': limpiar_texto(titulo),
-                        'fuente': 'El Tiempo',
-                        'tipo_fuente': obtener_tipo_fuente('El Tiempo'),
-                        'ciudad': detectar_ciudad(texto_completo),
-                        'url': href,
-                        'resumen': obtener_resumen(resumen) if resumen else ''
-                    })
-        except (json.JSONDecodeError, TypeError):
+            # FILTRO ESTRICTO: debe contener términos de juventud
+            if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
+                texto_completo = f"{titulo} {resumen}"
+                noticias.append({
+                    'fecha': datetime.now().strftime('%Y-%m-%d'),
+                    'titulo': limpiar_texto(titulo),
+                    'fuente': 'El Tiempo',
+                    'tipo_fuente': obtener_tipo_fuente('El Tiempo'),
+                    'ciudad': detectar_ciudad(texto_completo),
+                    'url': href,
+                    'resumen': obtener_resumen(resumen) if resumen else ''
+                })
+        except Exception:
             continue
 
     return noticias
@@ -551,10 +510,11 @@ def scrape_eltiempo() -> list[dict]:
 
 def scrape_elespectador() -> list[dict]:
     """Scraper para El Espectador (diario pago) - sección Colombia.
-    Usa el JSON de Fusion.globalContent embebido en la página.
-    El JSON está minificado y sin espacios (Fusion.globalContent={...}),
-    por eso se usa conteo de llaves en vez de regex non-greedy.
+    Usa el JSON de Fusion.globalContent embebido en la página,
+    que contiene todos los artículos con título y descripción completos.
     """
+    import json as json_mod
+
     noticias = []
     url = "https://www.elespectador.com/colombia/"
 
@@ -562,24 +522,71 @@ def scrape_elespectador() -> list[dict]:
     if not response:
         return noticias
 
+    # Intentar extraer datos del JSON de Fusion (más confiable que parsear HTML)
     texto_pagina = response.text
+    match = re.search(r'Fusion\.globalContent\s*=\s*(\{.*?\});\s*Fusion\.', texto_pagina, re.DOTALL)
 
-    # Extraer JSON de Fusion.globalContent con conteo de llaves
-    datos_json = extraer_json_desde_html(texto_pagina, r'Fusion\.globalContent\s*=\s*')
+    if match:
+        try:
+            datos_json = json_mod.loads(match.group(1))
+            # Los artículos están en content_elements
+            elementos = datos_json.get('content_elements', [])
 
-    if datos_json:
-        elementos = datos_json.get('content_elements', [])
+            for elem in elementos[:50]:
+                try:
+                    titulo = elem.get('headlines', {}).get('basic', '')
+                    resumen = elem.get('description', {}).get('basic', '')
+                    url_relativa = elem.get('canonical_url', '')
 
-        for elem in elementos[:50]:
+                    if not titulo or not url_relativa:
+                        continue
+
+                    href = urljoin("https://www.elespectador.com", url_relativa)
+
+                    # FILTRO ESTRICTO
+                    if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
+                        texto_completo = f"{titulo} {resumen}"
+                        noticias.append({
+                            'fecha': datetime.now().strftime('%Y-%m-%d'),
+                            'titulo': limpiar_texto(titulo),
+                            'fuente': 'El Espectador',
+                            'tipo_fuente': obtener_tipo_fuente('El Espectador'),
+                            'ciudad': detectar_ciudad(texto_completo),
+                            'url': href,
+                            'resumen': obtener_resumen(resumen) if resumen else ''
+                        })
+                except Exception:
+                    continue
+        except json_mod.JSONDecodeError:
+            pass
+
+    # Si no se encontró el JSON, se usa HTML como respaldo
+    if not noticias:
+        soup = BeautifulSoup(texto_pagina, 'lxml')
+        # El Espectador usa <div class="Card Card-HomeEE"> y <h2 class="Card-Title">
+        cards = soup.find_all('div', class_=re.compile(r'Card-HomeEE'))
+
+        for card in cards[:50]:
             try:
-                titulo = elem.get('headlines', {}).get('basic', '')
-                resumen = elem.get('description', {}).get('basic', '')
-                url_relativa = elem.get('canonical_url', '')
-
-                if not titulo or not url_relativa:
+                titulo_tag = card.find('h2', class_=re.compile(r'Card-Title'))
+                if not titulo_tag:
                     continue
 
-                href = urljoin("https://www.elespectador.com", url_relativa)
+                link_tag = titulo_tag.find('a', href=True)
+                if not link_tag:
+                    continue
+
+                titulo = link_tag.get_text(strip=True)
+                href = link_tag.get('href', '')
+                if not href.startswith('http'):
+                    href = urljoin("https://www.elespectador.com", href)
+
+                # El resumen solo aparece en la card principal (Card-Hook)
+                hook_tag = card.find('div', class_=re.compile(r'Card-Hook'))
+                resumen = ''
+                if hook_tag:
+                    hook_link = hook_tag.find('a')
+                    resumen = hook_link.get_text(strip=True) if hook_link else hook_tag.get_text(strip=True)
 
                 # FILTRO ESTRICTO
                 if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
@@ -595,84 +602,6 @@ def scrape_elespectador() -> list[dict]:
                     })
             except Exception:
                 continue
-
-    return noticias
-
-
-def buscar_noticias_historicas() -> list[dict]:
-    """Busca noticias históricas usando Google News RSS.
-    Permite recuperar noticias de semanas anteriores que no se capturaron
-    porque el scraper solo recoge lo que está en la página del día.
-    """
-    from urllib.parse import quote
-
-    noticias = []
-
-    # Buscar cada término de juventud en Google News Colombia
-    # Se limita a los términos más relevantes para no saturar
-    terminos_busqueda = [
-        "jóvenes Colombia",
-        "juventud Colombia",
-        "adolescentes Colombia",
-        "menores de edad Colombia",
-        "niños Colombia noticias",
-        "colegios Colombia",
-        "estudiantes Colombia",
-        "IDIPRON Bogotá",
-    ]
-
-    for termino in terminos_busqueda:
-        try:
-            # Google News RSS con filtro de Colombia y español
-            url_rss = f"https://news.google.com/rss/search?q={quote(termino)}+when:60d&hl=es-419&gl=CO&ceid=CO:es-419"
-            response = hacer_request(url_rss, timeout=20)
-            if not response:
-                continue
-
-            soup = BeautifulSoup(response.text, 'xml')
-            items = soup.find_all('item')
-
-            for item in items[:30]:
-                try:
-                    titulo_tag = item.find('title')
-                    link_tag = item.find('link')
-                    pubdate_tag = item.find('pubDate')
-                    source_tag = item.find('source')
-
-                    titulo = titulo_tag.get_text(strip=True) if titulo_tag else ''
-                    href = link_tag.get_text(strip=True) if link_tag else ''
-                    fuente_original = source_tag.get_text(strip=True) if source_tag else 'Google News'
-
-                    if not titulo or not href:
-                        continue
-
-                    # Parsear fecha de publicación
-                    fecha = datetime.now().strftime('%Y-%m-%d')
-                    if pubdate_tag:
-                        try:
-                            from email.utils import parsedate_to_datetime
-                            dt = parsedate_to_datetime(pubdate_tag.get_text(strip=True))
-                            fecha = dt.strftime('%Y-%m-%d')
-                        except Exception:
-                            pass
-
-                    # FILTRO ESTRICTO
-                    if contiene_terminos_juventud(titulo):
-                        noticias.append({
-                            'fecha': fecha,
-                            'titulo': limpiar_texto(titulo),
-                            'fuente': fuente_original,
-                            'tipo_fuente': obtener_tipo_fuente(fuente_original),
-                            'ciudad': detectar_ciudad(titulo),
-                            'url': href,
-                            'resumen': obtener_resumen(titulo)
-                        })
-                except Exception:
-                    continue
-
-            time.sleep(1)
-        except Exception:
-            continue
 
     return noticias
 
@@ -721,20 +650,6 @@ def ejecutar_scraping() -> pd.DataFrame:
             print(f"    Error: {e}")
 
         time.sleep(1)
-
-    # Búsqueda histórica vía Google News (para capturar noticias de semanas anteriores)
-    print("\n  Buscando noticias históricas (Google News)...")
-    try:
-        noticias_historicas = buscar_noticias_historicas()
-        nuevas_hist = 0
-        for noticia in noticias_historicas:
-            if noticia['url'] not in urls_existentes:
-                nuevas_noticias.append(noticia)
-                urls_existentes.add(noticia['url'])
-                nuevas_hist += 1
-        print(f"    Encontradas: {len(noticias_historicas)} | Nuevas: {nuevas_hist}")
-    except Exception as e:
-        print(f"    Error en búsqueda histórica: {e}")
 
     # Combinar con existentes
     print(f"\n[3] Procesando resultados...")
