@@ -173,10 +173,6 @@ def hacer_request(url: str, timeout: int = 15) -> requests.Response | None:
 def crear_noticia(titulo: str, fuente: str, ciudad: str, url: str, resumen: str) -> dict | None:
     """Crea un dict de noticia con todos los campos, incluyendo categoría y filtro Colombia.
     Retorna None si la noticia no es de Colombia (se descarta).
-
-    Resumen: solo se incluye si el medio lo proporciona en la página de listado.
-    Si el resumen es igual al título, se deja vacío para no duplicar información.
-    No se hace fetch adicional al artículo para obtener resúmenes.
     """
     texto_completo = f"{titulo} {resumen}"
 
@@ -197,7 +193,6 @@ def crear_noticia(titulo: str, fuente: str, ciudad: str, url: str, resumen: str)
         'ciudad': ciudad_detectada,
         'bogota': es_bogota,
         'url': url,
-        # Solo se incluye resumen si viene del listado y es diferente al título
         'resumen': obtener_resumen(resumen) if resumen and limpiar_texto(resumen) != limpiar_texto(titulo) else ''
     }
 

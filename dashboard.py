@@ -69,10 +69,16 @@ st.markdown("""
         font-family: 'Figtree', sans-serif;
     }
 
-    /* Texto del sidebar sin tocar íconos de Material Icons */
-    section[data-testid="stSidebar"] span:not([class*="icon"]):not([data-testid]) {
+    /* Texto del sidebar sin tocar íconos de Material Symbols */
+    section[data-testid="stSidebar"] span:not([class*="icon"]):not([class*="material"]):not([class*="Symbol"]):not([data-testid]) {
         color: #EDE0C0 !important;
         font-family: 'Figtree', sans-serif;
+    }
+
+    /* Ocultar texto de íconos Material que Streamlit renderiza como spans */
+    section[data-testid="stSidebar"] span[class*="material"],
+    section[data-testid="stSidebar"] span[class*="Symbol"] {
+        font-family: 'Material Symbols Rounded', sans-serif !important;
     }
 
     section[data-testid="stSidebar"] h2 {
