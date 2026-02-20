@@ -184,8 +184,8 @@ st.markdown("""
     /* === Botón sidebar === */
     section[data-testid="stSidebar"] .stButton button,
     section[data-testid="stSidebar"] .stButton button span {
-        background-color: #B2F26C;
-        color: #1E2328 !important;
+        background-color: #2EAC6E;
+        color: #FFFFFF !important;
         font-weight: 700;
         border: none;
         border-radius: 6px;
@@ -194,7 +194,7 @@ st.markdown("""
 
     section[data-testid="stSidebar"] .stButton button:hover,
     section[data-testid="stSidebar"] .stButton button:hover span {
-        background-color: #2EAC6E;
+        background-color: #6B3FA0;
         color: #FFFFFF !important;
     }
 </style>
