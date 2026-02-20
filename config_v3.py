@@ -1,22 +1,23 @@
 # Configuración del scraper de noticias
 
-# Términos de búsqueda relacionados con JUVENTUD y ADOLESCENCIA (filtro obligatorio)
-# La búsqueda es por subcadena: "joven" captura "joven", "jovenes", etc.
-# Se incluyen variantes con y sin tilde
+# Términos de búsqueda relacionados con JUVENTUD (filtro obligatorio)
 TERMINOS_JUVENTUD = [
     "juventud",
     "jóvenes",
     "jovenes",
-    "joven",
-    "juvenil",
-    "adolescente",
+    "adolescentes",
     "adolescencia",
     "menor de edad",
     "menores de edad",
     "pandillas",
     "idipron",
     "plataformas juveniles",
-    "colj",
+    "primera infancia",
+    "niños",
+    "niñas",
+    "infancia",
+    "juvenil",
+    "juveniles",
     "estudiantes",
     "colegios",
     "escolar",

@@ -64,8 +64,13 @@ st.markdown("""
     section[data-testid="stSidebar"] .stMarkdown,
     section[data-testid="stSidebar"] label,
     section[data-testid="stSidebar"] .stRadio label,
-    section[data-testid="stSidebar"] span,
     section[data-testid="stSidebar"] p {
+        color: #EDE0C0 !important;
+        font-family: 'Figtree', sans-serif;
+    }
+
+    /* Texto del sidebar sin tocar íconos de Material Icons */
+    section[data-testid="stSidebar"] span:not([class*="icon"]):not([data-testid]) {
         color: #EDE0C0 !important;
         font-family: 'Figtree', sans-serif;
     }
@@ -171,18 +176,20 @@ st.markdown("""
     }
 
     /* === Botón sidebar === */
-    section[data-testid="stSidebar"] .stButton button {
+    section[data-testid="stSidebar"] .stButton button,
+    section[data-testid="stSidebar"] .stButton button span {
         background-color: #B2F26C;
-        color: #1E2328;
+        color: #1E2328 !important;
         font-weight: 700;
         border: none;
         border-radius: 6px;
         font-family: 'Figtree', sans-serif;
     }
 
-    section[data-testid="stSidebar"] .stButton button:hover {
+    section[data-testid="stSidebar"] .stButton button:hover,
+    section[data-testid="stSidebar"] .stButton button:hover span {
         background-color: #2EAC6E;
-        color: #FFFFFF;
+        color: #FFFFFF !important;
     }
 </style>
 """, unsafe_allow_html=True)
