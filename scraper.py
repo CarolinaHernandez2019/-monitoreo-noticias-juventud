@@ -193,7 +193,7 @@ def crear_noticia(titulo: str, fuente: str, ciudad: str, url: str, resumen: str)
         'ciudad': ciudad_detectada,
         'bogota': es_bogota,
         'url': url,
-        'resumen': obtener_resumen(resumen) if resumen else ''
+        'resumen': obtener_resumen(resumen) if resumen and limpiar_texto(resumen) != limpiar_texto(titulo) else ''
     }
 
 
