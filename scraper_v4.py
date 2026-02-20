@@ -764,9 +764,6 @@ def ejecutar_scraping() -> pd.DataFrame:
     # Eliminar duplicados por URL
     df_final = df_final.drop_duplicates(subset=['url'], keep='first')
 
-    # Normalizar columna fecha (el Excel carga datetime, los nuevos datos son string)
-    df_final['fecha'] = pd.to_datetime(df_final['fecha'], errors='coerce').dt.strftime('%Y-%m-%d')
-
     # Ordenar por fecha descendente
     df_final = df_final.sort_values('fecha', ascending=False)
 
