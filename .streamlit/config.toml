@@ -1,0 +1,11 @@
+[theme]
+# Tema SDIS Distrito Joven
+# Morado como color primario para widgets interactivos (botones, sliders, checkboxes)
+primaryColor = "#6B3FA0"
+# Fondo blanco limpio para el área principal
+backgroundColor = "#FFFFFF"
+# Crema suave para sidebar y cards de métricas
+secondaryBackgroundColor = "#F5F0EB"
+# Charcoal oscuro de la paleta SDIS para texto legible
+textColor = "#1E2328"
+font = "sans serif"

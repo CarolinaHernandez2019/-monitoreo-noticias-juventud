@@ -23,166 +23,23 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilos CSS - Marca SDIS Distrito Joven
+# Estilos CSS
 st.markdown("""
 <style>
-    /* === Tipografía - Google Fonts === */
-    @import url('https://fonts.googleapis.com/css2?family=Anton&family=Antonio:wght@700&family=Figtree:wght@400;600;700&display=swap');
-
-    /* Figtree como fuente base del dashboard */
-    html, body, [class*="css"] {
-        font-family: 'Figtree', sans-serif;
-    }
-
-    /* === Header principal === */
     .main-header {
-        font-family: 'Anton', sans-serif;
         font-size: 2.5rem;
-        text-transform: uppercase;
-        color: #FFFFFF;
-        background: linear-gradient(135deg, #6B3FA0 0%, #8B6BAD 100%);
+        font-weight: bold;
+        color: #1f77b4;
         text-align: center;
-        padding: 1.2rem 1rem;
-        border-radius: 8px;
-        margin-bottom: 1.5rem;
-        letter-spacing: 1px;
+        margin-bottom: 1rem;
     }
-
-    /* === Subtítulos === */
-    .stMarkdown h2 {
-        font-family: 'Antonio', sans-serif;
-        font-weight: 700;
-        font-size: 1.4rem;
-        color: #6B3FA0;
+    .bogota-highlight {
+        font-size: 1.2rem;
+        padding: 0.5rem;
+        border-radius: 0.3rem;
     }
-
-    /* === Sidebar === */
-    section[data-testid="stSidebar"] {
-        background-color: #1E2328;
-    }
-
-    section[data-testid="stSidebar"] .stMarkdown,
-    section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] .stRadio label,
-    section[data-testid="stSidebar"] span,
-    section[data-testid="stSidebar"] p {
-        color: #EDE0C0 !important;
-        font-family: 'Figtree', sans-serif;
-    }
-
-    section[data-testid="stSidebar"] h2 {
-        font-family: 'Antonio', sans-serif;
-        color: #B2F26C !important;
-        font-weight: 700;
-    }
-
-    /* === Tarjetas de métricas === */
-    div[data-testid="stMetric"] {
-        background: linear-gradient(135deg, #2EAC6E 0%, #2A7B8C 100%);
-        border: none;
-        border-radius: 10px;
-        padding: 1rem 1.2rem;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10);
-    }
-
-    div[data-testid="stMetric"] label {
-        color: #EDE0C0 !important;
-        font-family: 'Figtree', sans-serif;
-        font-weight: 600;
-        font-size: 0.85rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
-        color: #FFFFFF !important;
-        font-family: 'Anton', sans-serif;
-        font-size: 2.2rem;
-    }
-
-    /* === Separadores === */
-    hr {
-        border-color: #B2F26C;
-        opacity: 0.3;
-    }
-
-    /* === Tabla de datos === */
     .stDataFrame {
         font-size: 0.9rem;
-    }
-
-    table {
-        border-collapse: collapse;
-        width: 100%;
-        font-family: 'Figtree', sans-serif;
-        font-size: 0.85rem;
-    }
-
-    table th {
-        background-color: #6B3FA0;
-        color: #FFFFFF;
-        padding: 0.6rem 0.8rem;
-        text-align: left;
-        font-weight: 700;
-        font-family: 'Antonio', sans-serif;
-        font-size: 0.95rem;
-    }
-
-    table td {
-        padding: 0.5rem 0.8rem;
-        border-bottom: 1px solid #EDE0C0;
-        color: #1E2328;
-    }
-
-    table tr:nth-child(even) {
-        background-color: #F5F0EB;
-    }
-
-    table tr:hover {
-        background-color: #A5E8CE;
-    }
-
-    table a {
-        color: #6B3FA0;
-        font-weight: 600;
-    }
-
-    /* === Botón de descarga === */
-    .stDownloadButton button {
-        background-color: #2EAC6E;
-        color: #FFFFFF;
-        font-family: 'Figtree', sans-serif;
-        font-weight: 600;
-        border: none;
-        border-radius: 6px;
-    }
-
-    .stDownloadButton button:hover {
-        background-color: #6B3FA0;
-        color: #FFFFFF;
-    }
-
-    /* === Footer === */
-    .footer-text {
-        text-align: center;
-        color: #5C5F63;
-        font-family: 'Figtree', sans-serif;
-        font-size: 0.8rem;
-    }
-
-    /* === Botón sidebar === */
-    section[data-testid="stSidebar"] .stButton button {
-        background-color: #B2F26C;
-        color: #1E2328;
-        font-weight: 700;
-        border: none;
-        border-radius: 6px;
-        font-family: 'Figtree', sans-serif;
-    }
-
-    section[data-testid="stSidebar"] .stButton button:hover {
-        background-color: #2EAC6E;
-        color: #FFFFFF;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -217,14 +74,9 @@ def cargar_datos() -> pd.DataFrame:
 
 
 def main():
-    # Header con branding Distrito Joven
+    # Header
     st.markdown(
-        '<div class="main-header">'
-        'Monitor de noticias - Juventud en Colombia'
-        '<br><span style="font-family: Antonio, sans-serif; font-size: 1rem; '
-        'letter-spacing: 2px; color: #B2F26C;">DISTRITO JOVEN &middot; '
-        'SECRETARÍA DE INTEGRACIÓN SOCIAL</span>'
-        '</div>',
+        '<p class="main-header">Monitor de noticias - Juventud en Colombia</p>',
         unsafe_allow_html=True
     )
 
@@ -346,17 +198,17 @@ def main():
             noticias_por_cat = df_filtrado['categoria'].value_counts().reset_index()
             noticias_por_cat.columns = ['Categoría', 'Cantidad']
 
-            # Colores por categoría - Paleta SDIS Distrito Joven
+            # Colores por categoría
             colores_cat = {
-                'Violencia': '#E8536D',
-                'Seguridad': '#F07850',
-                'Educación': '#2EAC6E',
-                'Protección': '#6B3FA0',
-                'Salud': '#3F9BA5',
-                'Empleo': '#B2F26C',
-                'Política pública': '#1A3A5C',
-                'Cultura y deporte': '#F0C430',
-                'Otra': '#5C5F63',
+                'Violencia': '#e74c3c',
+                'Seguridad': '#e67e22',
+                'Educación': '#2ecc71',
+                'Protección': '#9b59b6',
+                'Salud': '#3498db',
+                'Empleo': '#1abc9c',
+                'Política pública': '#f39c12',
+                'Cultura y deporte': '#2980b9',
+                'Otra': '#95a5a6',
             }
 
             fig_cat = px.bar(
@@ -370,10 +222,7 @@ def main():
             fig_cat.update_layout(
                 showlegend=False,
                 height=400,
-                yaxis={'categoryorder': 'total ascending'},
-                plot_bgcolor='rgba(0,0,0,0)',
-                paper_bgcolor='rgba(0,0,0,0)',
-                font=dict(family='Figtree', color='#1E2328'),
+                yaxis={'categoryorder': 'total ascending'}
             )
             st.plotly_chart(fig_cat, use_container_width=True)
         else:
@@ -393,17 +242,10 @@ def main():
                 y='Cantidad',
                 markers=True
             )
-            fig_dias.update_layout(
-                height=400,
-                plot_bgcolor='rgba(0,0,0,0)',
-                paper_bgcolor='rgba(0,0,0,0)',
-                font=dict(family='Figtree', color='#1E2328'),
-            )
+            fig_dias.update_layout(height=400)
             fig_dias.update_traces(
-                line_color='#2EAC6E',
-                marker_size=8,
-                marker_color='#6B3FA0',
-                line_width=2.5,
+                line_color='#1f77b4',
+                marker_size=8
             )
             st.plotly_chart(fig_dias, use_container_width=True)
         else:
@@ -427,16 +269,13 @@ def main():
             color='ubicacion',
             orientation='h',
             barmode='group',
-            color_discrete_map={'Bogotá': '#6B3FA0', 'Resto del país': '#8FCDD4'},
+            color_discrete_map={'Bogotá': '#e74c3c', 'Resto del país': '#3498db'},
             labels={'categoria': 'Categoría', 'ubicacion': 'Ubicación'}
         )
         fig_cruce.update_layout(
             height=400,
             yaxis={'categoryorder': 'total ascending'},
-            legend_title_text='',
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            font=dict(family='Figtree', color='#1E2328'),
+            legend_title_text=''
         )
         st.plotly_chart(fig_cruce, use_container_width=True)
 
@@ -488,11 +327,9 @@ def main():
     # ===== FOOTER =====
     st.markdown("---")
     st.markdown(
-        f"<p class='footer-text'>"
+        f"<p style='text-align: center; color: gray;'>"
         f"Última actualización: {datetime.now().strftime('%Y-%m-%d %H:%M')} | "
-        f"Total en base de datos: {len(df)} noticias<br>"
-        f"<span style='color: #6B3FA0; font-weight: 600;'>Distrito Joven</span> · "
-        f"Secretaría de Integración Social</p>",
+        f"Total en base de datos: {len(df)} noticias</p>",
         unsafe_allow_html=True
     )
 
