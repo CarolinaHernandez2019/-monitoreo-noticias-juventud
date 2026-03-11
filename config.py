@@ -116,6 +116,36 @@ FUENTES = {
         "seccion_colombia": "https://www.elespectador.com/colombia/",
         "tipo": "diario pago",
     },
+    "SDIS - Juventud": {
+        "url": "https://www.integracionsocial.gov.co/",
+        "seccion_colombia": "https://www.integracionsocial.gov.co/index.php/noticias/94-noticias-juventud",
+        "tipo": "institucional",
+    },
+    "La Silla Vacía": {
+        "url": "https://www.lasillavacia.com/",
+        "seccion_colombia": "https://www.lasillavacia.com/",
+        "tipo": "gratuito",
+    },
+    "Prosperidad Social": {
+        "url": "https://prosperidadsocial.gov.co/",
+        "seccion_colombia": "https://prosperidadsocial.gov.co/noticias/",
+        "tipo": "institucional",
+    },
+    "Las2orillas": {
+        "url": "https://www.las2orillas.co/",
+        "seccion_colombia": "https://www.las2orillas.co/",
+        "tipo": "gratuito",
+    },
+    "La Nota Económica": {
+        "url": "https://lanotaeconomica.com.co/",
+        "seccion_colombia": "https://lanotaeconomica.com.co/",
+        "tipo": "gratuito",
+    },
+    "Portafolio": {
+        "url": "https://www.portafolio.co/",
+        "seccion_colombia": "https://www.portafolio.co/economia",
+        "tipo": "gratuito",
+    },
 }
 
 # Categorías temáticas para clasificar cada noticia
@@ -162,6 +192,7 @@ CATEGORIAS = {
         "festival", "torneo", "competencia", "recreación", "olimpiada",
     ],
 }
+
 
 # Palabras que indican que la noticia NO es de Colombia (filtro geográfico)
 PAISES_EXCLUIDOS = [

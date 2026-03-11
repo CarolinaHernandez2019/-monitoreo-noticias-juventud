@@ -5,6 +5,7 @@ Scraper de noticias sobre juventud en Colombia
 Monitorea múltiples fuentes de noticias colombianas
 """
 
+import hashlib
 import os
 import re
 import time
@@ -78,7 +79,9 @@ def es_noticia_colombia(texto: str, url: str = "") -> bool:
     medios_colombianos = ['eltiempo.com', 'elespectador.com', 'bluradio.com',
                           'noticiascaracol.com', 'pulzo.com', 'diarioadn.co',
                           'alertabogota.com', 'redmas.com.co', '.gov.co',
-                          '.edu.co', '.org.co']
+                          '.edu.co', '.org.co', 'lasillavacia.com',
+                          'las2orillas.co', 'lanotaeconomica.com.co',
+                          'portafolio.co']
     es_medio_colombiano = any(m in url_lower for m in medios_colombianos)
 
     # Verificar si menciona algún país/ciudad excluida
@@ -159,10 +162,15 @@ def guardar_excel(df: pd.DataFrame):
     print(f"\nGuardadas {len(df)} noticias en {EXCEL_PATH}")
 
 
-def hacer_request(url: str, timeout: int = 15) -> requests.Response | None:
-    """Realiza una petición HTTP con manejo de errores."""
+def hacer_request(url: str, timeout: int = 15, verify: bool = True) -> requests.Response | None:
+    """Realiza una petición HTTP con manejo de errores.
+    verify=False para sitios con certificado SSL inválido (ej. integracionsocial.gov.co).
+    """
     try:
-        response = requests.get(url, headers=HEADERS, timeout=timeout)
+        if not verify:
+            import urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        response = requests.get(url, headers=HEADERS, timeout=timeout, verify=verify)
         response.raise_for_status()
         return response
     except requests.RequestException as e:
@@ -624,73 +632,226 @@ def scrape_elespectador() -> list[dict]:
     return noticias
 
 
-def buscar_noticias_historicas() -> list[dict]:
-    """Busca noticias históricas usando Google News RSS.
-    Permite recuperar noticias de semanas anteriores que no se capturaron
-    porque el scraper solo recoge lo que está en la página del día.
+def scrape_sdis_juventud() -> list[dict]:
+    """Scraper para la sección de noticias de juventud de la SDIS.
+    Sitio Joomla que muestra artículos completos inline (sin URL individual por artículo).
+    Se genera una URL única con hash del título para deduplicación.
+    No se filtra por términos de juventud: toda la sección es de juventud.
+    Ciudad siempre Bogotá. Fecha real tomada del tag <time>.
     """
-    from urllib.parse import quote
-
     noticias = []
+    url_base = "https://www.integracionsocial.gov.co/index.php/noticias/94-noticias-juventud"
 
-    # Buscar cada término de juventud en Google News Colombia
-    # Se limita a los términos más relevantes para no saturar
-    terminos_busqueda = [
-        "jóvenes Colombia",
-        "juventud Colombia",
-        "adolescentes Colombia",
-        "menores de edad Colombia",
-        "niños Colombia noticias",
-        "colegios Colombia",
-        "estudiantes Colombia",
-        "IDIPRON Bogotá",
-    ]
+    # Scrapear primeras 2 páginas (20 artículos, ~1 mes de publicaciones)
+    for inicio in [0, 10]:
+        url = url_base if inicio == 0 else f"{url_base}?start={inicio}"
 
-    for termino in terminos_busqueda:
-        try:
-            # Google News RSS con filtro de Colombia y español
-            url_rss = f"https://news.google.com/rss/search?q={quote(termino)}+when:60d&hl=es-419&gl=CO&ceid=CO:es-419"
-            response = hacer_request(url_rss, timeout=20)
-            if not response:
-                continue
+        response = hacer_request(url, verify=False)
+        if not response:
+            continue
 
-            soup = BeautifulSoup(response.text, 'xml')
-            items = soup.find_all('item')
+        soup = BeautifulSoup(response.text, 'lxml')
+        articulos = soup.find_all('article')
 
-            for item in items[:30]:
-                try:
-                    titulo_tag = item.find('title')
-                    link_tag = item.find('link')
-                    pubdate_tag = item.find('pubDate')
-                    source_tag = item.find('source')
-
-                    titulo = titulo_tag.get_text(strip=True) if titulo_tag else ''
-                    href = link_tag.get_text(strip=True) if link_tag else ''
-                    fuente_original = source_tag.get_text(strip=True) if source_tag else 'Google News'
-
-                    if not titulo or not href:
-                        continue
-
-                    # Parsear fecha de publicación
-                    fecha = datetime.now().strftime('%Y-%m-%d')
-                    if pubdate_tag:
-                        try:
-                            from email.utils import parsedate_to_datetime
-                            dt = parsedate_to_datetime(pubdate_tag.get_text(strip=True))
-                            fecha = dt.strftime('%Y-%m-%d')
-                        except Exception:
-                            pass
-
-                    # FILTRO: términos de juventud + Colombia
-                    if contiene_terminos_juventud(titulo):
-                        noticia = crear_noticia(titulo, fuente_original, 'auto', href, titulo)
-                        if noticia:
-                            noticia['fecha'] = fecha  # Usar la fecha real de publicación
-                            noticias.append(noticia)
-                except Exception:
+        for art in articulos:
+            try:
+                # Título
+                h2 = art.find('h2')
+                if not h2:
+                    continue
+                titulo = h2.get_text(strip=True)
+                if not titulo or len(titulo) < 10:
                     continue
 
-            time.sleep(1)
+                # Fecha real de publicación
+                time_tag = art.find('time')
+                if time_tag and time_tag.get('datetime'):
+                    try:
+                        dt = datetime.fromisoformat(time_tag['datetime'].replace('+00:00', '+00:00'))
+                        fecha = dt.strftime('%Y-%m-%d')
+                    except (ValueError, TypeError):
+                        fecha = datetime.now().strftime('%Y-%m-%d')
+                else:
+                    fecha = datetime.now().strftime('%Y-%m-%d')
+
+                # Resumen: primeros párrafos del artículo
+                parrafos = art.find_all('p')
+                textos = [p.get_text(strip=True) for p in parrafos if len(p.get_text(strip=True)) > 30]
+                resumen_texto = ' '.join(textos[:2]) if textos else ''
+
+                # URL única: hash del título normalizado como fragmento
+                titulo_normalizado = re.sub(r'\s+', ' ', titulo).strip().lower()
+                hash_id = hashlib.md5(titulo_normalizado.encode('utf-8')).hexdigest()[:10]
+                href = f"{url_base}#{hash_id}"
+
+                # Crear noticia (ciudad fija Bogotá, sin filtro de términos)
+                categoria = clasificar_categoria(f"{titulo} {resumen_texto}")
+
+                noticia = {
+                    'fecha': fecha,
+                    'titulo': limpiar_texto(titulo),
+                    'fuente': 'SDIS - Juventud',
+                    'tipo_fuente': obtener_tipo_fuente('SDIS - Juventud'),
+                    'categoria': categoria,
+                    'ciudad': 'Bogotá',
+                    'bogota': 'Sí',
+                    'url': href,
+                    'resumen': obtener_resumen(resumen_texto) if resumen_texto else '',
+                }
+                noticias.append(noticia)
+            except Exception:
+                continue
+
+        time.sleep(1)
+
+    return noticias
+
+
+def scrape_rss_wordpress(url_feed: str, nombre_fuente: str) -> list[dict]:
+    """Scraper genérico para feeds RSS de WordPress.
+    Funciona con La Silla Vacía, Las2orillas, La Nota Económica y similares.
+    """
+    noticias = []
+
+    response = hacer_request(url_feed)
+    if not response:
+        return noticias
+
+    soup = BeautifulSoup(response.text, 'xml')
+    items = soup.find_all('item')
+
+    for item in items[:50]:
+        try:
+            titulo_tag = item.find('title')
+            link_tag = item.find('link')
+            desc_tag = item.find('description')
+
+            titulo = titulo_tag.get_text(strip=True) if titulo_tag else ''
+            href = link_tag.get_text(strip=True) if link_tag else ''
+            resumen = ''
+            if desc_tag:
+                # Limpiar HTML del resumen RSS
+                desc_html = desc_tag.get_text(strip=True)
+                desc_soup = BeautifulSoup(desc_html, 'lxml')
+                resumen = desc_soup.get_text(strip=True)
+
+            if not titulo or not href:
+                continue
+
+            # FILTRO: términos de juventud + Colombia
+            if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
+                noticia = crear_noticia(titulo, nombre_fuente, 'auto', href, resumen)
+                if noticia:
+                    noticias.append(noticia)
+        except Exception:
+            continue
+
+    return noticias
+
+
+def scrape_lasillavacia() -> list[dict]:
+    """Scraper para La Silla Vacía - vía RSS (WordPress)."""
+    return scrape_rss_wordpress("https://www.lasillavacia.com/feed/", "La Silla Vacía")
+
+
+def scrape_las2orillas() -> list[dict]:
+    """Scraper para Las2orillas - vía RSS (WordPress)."""
+    return scrape_rss_wordpress("https://www.las2orillas.co/feed/", "Las2orillas")
+
+
+def scrape_lanotaeconomica() -> list[dict]:
+    """Scraper para La Nota Económica - vía RSS (WordPress)."""
+    return scrape_rss_wordpress("https://lanotaeconomica.com.co/feed/", "La Nota Económica")
+
+
+def scrape_portafolio() -> list[dict]:
+    """Scraper para Portafolio - sección economía.
+    Usa atributos data-* en los <article> (data-name, data-publicacion).
+    """
+    noticias = []
+    url = "https://www.portafolio.co/economia"
+
+    response = hacer_request(url)
+    if not response:
+        return noticias
+
+    soup = BeautifulSoup(response.text, 'lxml')
+    articulos = soup.find_all('article')
+
+    for art in articulos[:50]:
+        try:
+            # Título desde data-name o desde el h3
+            titulo = art.get('data-name', '')
+            if not titulo:
+                h3 = art.find(['h2', 'h3'])
+                titulo = h3.get_text(strip=True) if h3 else ''
+
+            if not titulo:
+                continue
+
+            # URL desde el enlace dentro del artículo
+            link_tag = art.find('a', href=True)
+            if not link_tag:
+                continue
+            href = link_tag.get('href', '')
+            if not href.startswith('http'):
+                href = urljoin("https://www.portafolio.co", href)
+
+            resumen = titulo  # Portafolio no tiene resumen en el listado
+
+            # FILTRO: términos de juventud + Colombia
+            if contiene_terminos_juventud(titulo):
+                noticia = crear_noticia(titulo, 'Portafolio', 'auto', href, resumen)
+                if noticia:
+                    noticias.append(noticia)
+        except Exception:
+            continue
+
+    return noticias
+
+
+def scrape_prosperidad_social() -> list[dict]:
+    """Scraper para Prosperidad Social - sección noticias.
+    Sitio WordPress (GeneratePress) con <article> estándar.
+    """
+    noticias = []
+    url = "https://prosperidadsocial.gov.co/noticias/"
+
+    response = hacer_request(url, verify=False)
+    if not response:
+        return noticias
+
+    soup = BeautifulSoup(response.text, 'lxml')
+    articulos = soup.find_all('article')
+
+    for art in articulos[:20]:
+        try:
+            # Título
+            h2 = art.find('h2', class_='entry-title')
+            if not h2:
+                continue
+            link_tag = h2.find('a', href=True)
+            if not link_tag:
+                continue
+
+            titulo = link_tag.get_text(strip=True)
+            href = link_tag.get('href', '')
+
+            if not titulo or not href:
+                continue
+
+            # Resumen
+            resumen_div = art.find('div', class_='entry-summary')
+            resumen = ''
+            if resumen_div:
+                p = resumen_div.find('p')
+                resumen = p.get_text(strip=True) if p else resumen_div.get_text(strip=True)
+
+            # FILTRO: términos de juventud + Colombia
+            if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
+                noticia = crear_noticia(titulo, 'Prosperidad Social', 'Bogotá', href, resumen)
+                if noticia:
+                    noticias.append(noticia)
         except Exception:
             continue
 
@@ -723,6 +884,12 @@ def ejecutar_scraping() -> pd.DataFrame:
         ("Diario ADN", scrape_diarioadn),
         ("El Tiempo", scrape_eltiempo),
         ("El Espectador", scrape_elespectador),
+        ("SDIS - Juventud", scrape_sdis_juventud),
+        ("La Silla Vacía", scrape_lasillavacia),
+        ("Las2orillas", scrape_las2orillas),
+        ("La Nota Económica", scrape_lanotaeconomica),
+        ("Portafolio", scrape_portafolio),
+        ("Prosperidad Social", scrape_prosperidad_social),
     ]
 
     print("\n[2] Ejecutando scrapers (filtro: términos de juventud)...")
@@ -741,20 +908,6 @@ def ejecutar_scraping() -> pd.DataFrame:
             print(f"    Error: {e}")
 
         time.sleep(1)
-
-    # Búsqueda histórica vía Google News (para capturar noticias de semanas anteriores)
-    print("\n  Buscando noticias históricas (Google News)...")
-    try:
-        noticias_historicas = buscar_noticias_historicas()
-        nuevas_hist = 0
-        for noticia in noticias_historicas:
-            if noticia['url'] not in urls_existentes:
-                nuevas_noticias.append(noticia)
-                urls_existentes.add(noticia['url'])
-                nuevas_hist += 1
-        print(f"    Encontradas: {len(noticias_historicas)} | Nuevas: {nuevas_hist}")
-    except Exception as e:
-        print(f"    Error en búsqueda histórica: {e}")
 
     # Combinar con existentes
     print(f"\n[3] Procesando resultados...")
