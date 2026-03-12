@@ -2,7 +2,7 @@
 
 Este sistema revisa automáticamente las principales páginas de noticias de Colombia todos los días y recopila las noticias que mencionan temas de juventud y adolescencia. Los resultados se guardan en un archivo Excel y se pueden consultar en un dashboard visual con filtros por fecha, ciudad, fuente y tipo de medio.
 
-## Para qué sirve
+## Usos
 
 - Tener un panorama diario de lo que se publica en medios sobre juventud en Colombia
 - No tener que revisar manualmente cada medio todos los días
