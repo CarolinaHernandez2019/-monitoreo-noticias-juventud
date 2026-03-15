@@ -40,6 +40,4 @@ Las noticias son recopiladas en un tablero interactivo:
 
 El scraper se ejecuta todos los días a las 7:00 AM (hora Colombia) mediante GitHub Actions. Los datos se actualizan automáticamente sin intervención manual.
 
-## Tecnología
-
 Hecho en Python. Todas las librerías necesarias están listadas en el archivo `requirements.txt`.
