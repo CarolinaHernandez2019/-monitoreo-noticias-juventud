@@ -5,7 +5,6 @@ Scraper de noticias sobre juventud en Colombia
 Monitorea múltiples fuentes de noticias colombianas
 """
 
-import hashlib
 import os
 import re
 import time
@@ -18,8 +17,9 @@ from bs4 import BeautifulSoup
 
 import json
 
-from config import (CATEGORIAS, CIUDADES_COLOMBIA, EXCEL_PATH, FUENTES,
-                     HEADERS, PAISES_EXCLUIDOS, TERMINOS_JUVENTUD)
+from config import (CATEGORIAS, CIUDADES_COLOMBIA, CONTEXTO_JUVENTUD, CSV_PATH,
+                    EXCEL_PATH, FUENTES, HEADERS, PAISES_EXCLUIDOS,
+                    PATRONES_EXCLUSION, TERMINOS_AMBIGUOS, TERMINOS_JUVENTUD)
 
 
 def contiene_terminos_juventud(texto: str) -> bool:
@@ -28,6 +28,77 @@ def contiene_terminos_juventud(texto: str) -> bool:
         return False
     texto_lower = texto.lower()
     return any(termino.lower() in texto_lower for termino in TERMINOS_JUVENTUD)
+
+
+def contiene_terminos_ambiguos(texto: str) -> bool:
+    """Detecta términos amplios que requieren contexto adicional."""
+    if not texto:
+        return False
+    texto_lower = texto.lower()
+    return any(termino in texto_lower for termino in TERMINOS_AMBIGUOS)
+
+
+def tiene_contexto_juventud(texto: str) -> bool:
+    """Confirma contexto de juventud cuando el término principal es ambiguo."""
+    if not texto:
+        return False
+    texto_lower = texto.lower()
+    return any(contexto in texto_lower for contexto in CONTEXTO_JUVENTUD)
+
+
+def es_falso_positivo(texto: str, fuente: str = "", url: str = "") -> bool:
+    """Descarta coincidencias por contexto deportivo u otros usos no relevantes."""
+    texto_lower = (texto or "").lower()
+    url_lower = (url or "").lower()
+    fuente_lower = (fuente or "").lower()
+
+    contexto = f"{texto_lower} {url_lower} {fuente_lower}"
+
+    if not any(termino in contexto for termino in ("juventud", "juvenil", "estudiantes")):
+        return False
+
+    return any(patron in contexto for patron in PATRONES_EXCLUSION)
+
+
+def es_relevante_para_monitoreo(titulo: str, resumen: str = "", fuente: str = "", url: str = "") -> bool:
+    """Aplica un filtro de relevancia con prioridad en precisión."""
+    texto = limpiar_texto(f"{titulo} {resumen}")
+    if not texto:
+        return False
+
+    if es_falso_positivo(texto, fuente, url):
+        return False
+
+    if contiene_terminos_juventud(texto):
+        return True
+
+    if contiene_terminos_ambiguos(texto):
+        return tiene_contexto_juventud(texto)
+
+    return False
+
+
+def filtrar_dataframe_relevante(df: pd.DataFrame) -> pd.DataFrame:
+    """Depura noticias históricas que ya no pasan filtros de relevancia y geografía."""
+    if df.empty:
+        return df
+
+    mask = df.apply(
+        lambda row: (
+            es_relevante_para_monitoreo(
+                str(row.get("titulo", "")),
+                str(row.get("resumen", "")),
+                str(row.get("fuente", "")),
+                str(row.get("url", "")),
+            )
+            and es_noticia_colombia(
+                f"{row.get('titulo', '')} {row.get('resumen', '')}",
+                str(row.get("url", "")),
+            )
+        ),
+        axis=1,
+    )
+    return df[mask].copy()
 
 
 def detectar_ciudad(texto: str) -> str:
@@ -57,6 +128,14 @@ def limpiar_texto(texto: str) -> str:
     return texto.strip()
 
 
+def contiene_frase(texto: str, termino: str) -> bool:
+    """Busca coincidencias por frase completa para evitar falsos positivos."""
+    if not texto or not termino:
+        return False
+    patron = rf'(?<!\w){re.escape(termino.lower())}(?!\w)'
+    return re.search(patron, texto.lower()) is not None
+
+
 def obtener_resumen(texto: str, max_chars: int = 250) -> str:
     """Extrae los primeros caracteres del texto como resumen."""
     texto = limpiar_texto(texto)
@@ -67,8 +146,7 @@ def obtener_resumen(texto: str, max_chars: int = 250) -> str:
 
 def es_noticia_colombia(texto: str, url: str = "") -> bool:
     """Verifica que la noticia sea de Colombia y no internacional.
-    Descarta noticias que mencionan países/ciudades extranjeras
-    sin mencionar Colombia o alguna ciudad colombiana.
+    Prioriza notas con foco local y descarta referencias internacionales.
     """
     if not texto:
         return False
@@ -85,21 +163,33 @@ def es_noticia_colombia(texto: str, url: str = "") -> bool:
     es_medio_colombiano = any(m in url_lower for m in medios_colombianos)
 
     # Verificar si menciona algún país/ciudad excluida
-    menciona_extranjero = any(pais in texto_lower for pais in PAISES_EXCLUIDOS)
+    menciona_extranjero = any(contiene_frase(texto_lower, pais) for pais in PAISES_EXCLUIDOS)
 
-    # Verificar si menciona Colombia o alguna ciudad colombiana
-    menciona_colombia = any(ciudad in texto_lower for ciudad in CIUDADES_COLOMBIA)
+    # Señales de foco colombiano
+    ciudades_colombianas_especificas = [
+        ciudad for ciudad, nombre in CIUDADES_COLOMBIA.items() if nombre != "Colombia"
+    ]
+    menciona_ciudad_colombiana = any(ciudad in texto_lower for ciudad in ciudades_colombianas_especificas)
+    menciona_colombia = "colombia" in texto_lower
+    url_colombia = any(
+        patron in url_lower for patron in ("/colombia", "/bogota", "/bogotá", "/nacion", "/nacional")
+    )
+    es_fuente_institucional = any(m in url_lower for m in (".gov.co", ".edu.co", ".org.co"))
 
-    # Si es medio colombiano y no menciona lugar extranjero, se acepta
-    if es_medio_colombiano and not menciona_extranjero:
-        return True
-
-    # Si menciona lugar extranjero, solo se acepta si también menciona Colombia
+    # Si menciona lugares extranjeros, se vuelve estricta la validación:
+    # solo se acepta si además menciona una ciudad colombiana específica
+    # o proviene de una fuente institucional local.
     if menciona_extranjero:
-        return menciona_colombia
+        return menciona_ciudad_colombiana or es_fuente_institucional
 
-    # Si no menciona ni extranjero ni Colombia, aceptar solo si es medio colombiano
-    return es_medio_colombiano or menciona_colombia
+    # Sin referencias extranjeras, se acepta si hay una señal clara de Colombia.
+    return (
+        menciona_ciudad_colombiana
+        or menciona_colombia
+        or url_colombia
+        or es_fuente_institucional
+        or es_medio_colombiano
+    )
 
 
 def clasificar_categoria(texto: str) -> str:
@@ -144,6 +234,11 @@ def cargar_excel_existente() -> pd.DataFrame:
             # Agregar columna bogota si no existe
             if 'bogota' not in df.columns:
                 df['bogota'] = df['ciudad'].apply(lambda c: "Sí" if c == "Bogotá" else "No")
+            total_antes = len(df)
+            df = filtrar_dataframe_relevante(df)
+            descartadas = total_antes - len(df)
+            if descartadas:
+                print(f"  Depuradas {descartadas} noticias históricas no relevantes")
             print(f"  Cargadas {len(df)} noticias existentes")
             return df
         except Exception as e:
@@ -153,13 +248,15 @@ def cargar_excel_existente() -> pd.DataFrame:
 
 
 def guardar_excel(df: pd.DataFrame):
-    """Guarda el DataFrame en Excel."""
+    """Guarda el DataFrame en Excel y CSV."""
     os.makedirs(os.path.dirname(EXCEL_PATH), exist_ok=True)
     # Asegurar orden de columnas
     columnas = ["fecha", "titulo", "fuente", "tipo_fuente", "categoria", "ciudad", "bogota", "url", "resumen"]
     df = df[columnas]
     df.to_excel(EXCEL_PATH, index=False)
+    df.to_csv(CSV_PATH, index=False, encoding='utf-8-sig')
     print(f"\nGuardadas {len(df)} noticias en {EXCEL_PATH}")
+    print(f"Guardadas {len(df)} noticias en {CSV_PATH}")
 
 
 def hacer_request(url: str, timeout: int = 15, verify: bool = True) -> requests.Response | None:
@@ -187,6 +284,9 @@ def crear_noticia(titulo: str, fuente: str, ciudad: str, url: str, resumen: str)
     No se hace fetch adicional al artículo para obtener resúmenes.
     """
     texto_completo = f"{titulo} {resumen}"
+
+    if not es_relevante_para_monitoreo(titulo, resumen, fuente, url):
+        return None
 
     # Filtro geográfico: solo noticias de Colombia
     if not es_noticia_colombia(texto_completo, url):
@@ -271,7 +371,7 @@ def scrape_bluradio() -> list[dict]:
             resumen = resumen_tag.get_text(strip=True) if resumen_tag else ''
 
             # FILTRO: términos de juventud + Colombia
-            if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
+            if es_relevante_para_monitoreo(titulo, resumen, 'Blu Radio', href):
                 noticia = crear_noticia(titulo, 'Blu Radio', 'auto', href, resumen)
                 if noticia:
                     noticias.append(noticia)
@@ -312,7 +412,7 @@ def scrape_caracol() -> list[dict]:
             resumen = resumen_tag.get_text(strip=True) if resumen_tag else ''
 
             # FILTRO: términos de juventud + Colombia
-            if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
+            if es_relevante_para_monitoreo(titulo, resumen, 'Noticias Caracol', href):
                 noticia = crear_noticia(titulo, 'Noticias Caracol', 'auto', href, resumen)
                 if noticia:
                     noticias.append(noticia)
@@ -366,7 +466,7 @@ def scrape_pulzo() -> list[dict]:
             resumen = titulo
 
             # FILTRO: términos de juventud + Colombia
-            if contiene_terminos_juventud(titulo):
+            if es_relevante_para_monitoreo(titulo, resumen, 'Pulzo', href):
                 noticia = crear_noticia(titulo, 'Pulzo', 'auto', href, resumen)
                 if noticia:
                     noticias.append(noticia)
@@ -405,7 +505,7 @@ def scrape_infobae() -> list[dict]:
                 continue
 
             # FILTRO: términos de juventud + Colombia
-            if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
+            if es_relevante_para_monitoreo(titulo, resumen, 'Infobae', href):
                 noticia = crear_noticia(titulo, 'Infobae', 'auto', href, resumen)
                 if noticia:
                     noticias.append(noticia)
@@ -444,7 +544,7 @@ def scrape_alertabogota() -> list[dict]:
             resumen = resumen_tag.get_text(strip=True) if resumen_tag else ''
 
             # FILTRO: términos de juventud + Colombia
-            if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
+            if es_relevante_para_monitoreo(titulo, resumen, 'Alerta Bogotá', href):
                 texto_completo = f"{titulo} {resumen}"
                 ciudad = detectar_ciudad(texto_completo)
                 if ciudad == "Sin identificar":
@@ -487,7 +587,7 @@ def scrape_redmas() -> list[dict]:
             resumen = resumen_tag.get_text(strip=True) if resumen_tag else ''
 
             # FILTRO: términos de juventud + Colombia
-            if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
+            if es_relevante_para_monitoreo(titulo, resumen, 'Red+', href):
                 noticia = crear_noticia(titulo, 'Red+', 'auto', href, resumen)
                 if noticia:
                     noticias.append(noticia)
@@ -526,7 +626,7 @@ def scrape_diarioadn() -> list[dict]:
             resumen = resumen_tag.get_text(strip=True) if resumen_tag else ''
 
             # FILTRO: términos de juventud + Colombia
-            if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
+            if es_relevante_para_monitoreo(titulo, resumen, 'Diario ADN', href):
                 noticia = crear_noticia(titulo, 'Diario ADN', 'auto', href, resumen)
                 if noticia:
                     noticias.append(noticia)
@@ -579,7 +679,7 @@ def scrape_eltiempo() -> list[dict]:
                     continue
 
                 # FILTRO: términos de juventud + Colombia
-                if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
+                if es_relevante_para_monitoreo(titulo, resumen, 'El Tiempo', href):
                     noticia = crear_noticia(titulo, 'El Tiempo', 'auto', href, resumen)
                     if noticia:
                         noticias.append(noticia)
@@ -622,7 +722,7 @@ def scrape_elespectador() -> list[dict]:
                 href = urljoin("https://www.elespectador.com", url_relativa)
 
                 # FILTRO: términos de juventud + Colombia
-                if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
+                if es_relevante_para_monitoreo(titulo, resumen, 'El Espectador', href):
                     noticia = crear_noticia(titulo, 'El Espectador', 'auto', href, resumen)
                     if noticia:
                         noticias.append(noticia)
@@ -739,7 +839,7 @@ def scrape_rss_wordpress(url_feed: str, nombre_fuente: str) -> list[dict]:
                 continue
 
             # FILTRO: términos de juventud + Colombia
-            if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
+            if es_relevante_para_monitoreo(titulo, resumen, nombre_fuente, href):
                 noticia = crear_noticia(titulo, nombre_fuente, 'auto', href, resumen)
                 if noticia:
                     noticias.append(noticia)
@@ -800,7 +900,7 @@ def scrape_portafolio() -> list[dict]:
             resumen = titulo  # Portafolio no tiene resumen en el listado
 
             # FILTRO: términos de juventud + Colombia
-            if contiene_terminos_juventud(titulo):
+            if es_relevante_para_monitoreo(titulo, resumen, 'Portafolio', href):
                 noticia = crear_noticia(titulo, 'Portafolio', 'auto', href, resumen)
                 if noticia:
                     noticias.append(noticia)
@@ -848,7 +948,7 @@ def scrape_prosperidad_social() -> list[dict]:
                 resumen = p.get_text(strip=True) if p else resumen_div.get_text(strip=True)
 
             # FILTRO: términos de juventud + Colombia
-            if contiene_terminos_juventud(titulo) or contiene_terminos_juventud(resumen):
+            if es_relevante_para_monitoreo(titulo, resumen, 'Prosperidad Social', href):
                 noticia = crear_noticia(titulo, 'Prosperidad Social', 'Bogotá', href, resumen)
                 if noticia:
                     noticias.append(noticia)

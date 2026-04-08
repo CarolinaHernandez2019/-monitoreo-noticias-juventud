@@ -1,8 +1,7 @@
 # Configuración del scraper de noticias
 
-# Términos de búsqueda relacionados con JUVENTUD y ADOLESCENCIA (filtro obligatorio)
-# La búsqueda es por subcadena: "joven" captura "joven", "jovenes", etc.
-# Se incluyen variantes con y sin tilde
+# Términos de búsqueda relacionados con JUVENTUD y ADOLESCENCIA.
+# Separamos términos fuertes de términos ambiguos para mejorar la precisión.
 TERMINOS_JUVENTUD = [
     "juventud",
     "jóvenes",
@@ -17,9 +16,74 @@ TERMINOS_JUVENTUD = [
     "idipron",
     "plataformas juveniles",
     "colj",
+    "distrito joven",
+    "casas de juventud",
+    "jóvenes en paz",
+    "jovenes en paz",
+    "renta joven",
+]
+
+# Términos demasiado amplios que solo deben aceptarse con contexto adicional.
+TERMINOS_AMBIGUOS = [
     "estudiantes",
+    "colegio",
     "colegios",
     "escolar",
+    "escuela",
+]
+
+# Palabras que ayudan a confirmar que un término ambiguo sí corresponde
+# al universo de juventud/adolescencia y no a una noticia general.
+CONTEXTO_JUVENTUD = [
+    "juventud",
+    "jóvenes",
+    "jovenes",
+    "joven",
+    "juvenil",
+    "adolescente",
+    "adolescencia",
+    "menor de edad",
+    "menores de edad",
+    "bachiller",
+    "icbf",
+    "idipron",
+    "renta joven",
+    "jóvenes en paz",
+    "jovenes en paz",
+    "distrito joven",
+    "casas de juventud",
+]
+
+# Indicadores de que "Juventud", "Juvenil" o "Estudiantes" aparecen en un
+# contexto deportivo y por tanto deben excluirse del monitoreo.
+PATRONES_EXCLUSION = [
+    " vs ",
+    " vs. ",
+    "en vivo",
+    "copa libertadores",
+    "liga betplay",
+    "liga de campeones",
+    "sudamericana",
+    "champions league",
+    "partido",
+    "debut",
+    "marcador",
+    "gol",
+    "goles",
+    "fútbol",
+    "futbol",
+    "torneo",
+    "atlético",
+    "atletico",
+    "deportivo",
+    "fc ",
+    "club",
+    "selección",
+    "seleccion",
+    "poderoso de la montaña",
+    "independiente medellín",
+    "independiente medellin",
+    "estudiantes de la plata",
 ]
 
 # Ciudades de Colombia para clasificación
@@ -207,12 +271,14 @@ PAISES_EXCLUIDOS = [
     "israel", "gaza", "palestina", "ucrania", "irán", "iran",
     "siria", "egipto", "nigeria", "kenia", "sudáfrica",
     "australia", "canadá", "nueva york", "washington",
-    "miami", "california", "texas", "florida",
+    "miami", "california", "texas", "florida", "georgia",
+    "ee. uu.", "eeuu", "usa",
     "valencia cf",
 ]
 
 # Ruta del archivo Excel
 EXCEL_PATH = "data/noticias.xlsx"
+CSV_PATH = "data/noticias.csv"
 
 # Headers para las peticiones HTTP
 HEADERS = {
