@@ -130,6 +130,49 @@ CIUDADES_COLOMBIA = {
     "inírida": "Inírida",
     "inirida": "Inírida",
     "colombia": "Colombia",
+    # Departamentos (para filtro geográfico)
+    "antioquia": "Medellín",
+    "atlántico": "Barranquilla",
+    "atlantico": "Barranquilla",
+    "bolívar": "Cartagena",
+    "bolivar": "Cartagena",
+    "boyacá": "Tunja",
+    "boyaca": "Tunja",
+    "caldas": "Manizales",
+    "caquetá": "Florencia",
+    "caqueta": "Florencia",
+    "casanare": "Yopal",
+    "cauca": "Popayán",
+    "cesar": "Valledupar",
+    "chocó": "Quibdó",
+    "choco": "Quibdó",
+    "córdoba": "Montería",
+    "cordoba": "Montería",
+    "cundinamarca": "Bogotá",
+    "guainía": "Inírida",
+    "guainia": "Inírida",
+    "guaviare": "San José del Guaviare",
+    "huila": "Neiva",
+    "la guajira": "Riohacha",
+    "guajira": "Riohacha",
+    "magdalena": "Santa Marta",
+    "meta": "Villavicencio",
+    "nariño": "Pasto",
+    "narino": "Pasto",
+    "norte de santander": "Cúcuta",
+    "putumayo": "Mocoa",
+    "quindío": "Armenia",
+    "quindio": "Armenia",
+    "risaralda": "Pereira",
+    "santander": "Bucaramanga",
+    "sucre": "Sincelejo",
+    "tolima": "Ibagué",
+    "valle del cauca": "Cali",
+    "vaupés": "Mitú",
+    "vaupes": "Mitú",
+    "vichada": "Puerto Carreño",
+    "san josé del guaviare": "San José del Guaviare",
+    "san jose del guaviare": "San José del Guaviare",
 }
 
 # Fuentes de noticias
@@ -260,20 +303,51 @@ CATEGORIAS = {
 
 # Palabras que indican que la noticia NO es de Colombia (filtro geográfico)
 PAISES_EXCLUIDOS = [
-    "londres", "london", "reino unido", "estados unidos", "españa",
-    "argentina", "méxico", "mexico", "chile", "santiago",
-    "perú", "peru", "lima", "brasil", "venezuela", "caracas", "chavista",
-    "ecuador", "quito", "guayaquil", "bolivia", "la paz",
-    "paraguay", "asunción", "uruguay", "montevideo",
-    "congo", "rusia", "moscú", "china", "beijing", "pekín",
-    "francia", "parís", "paris", "alemania", "berlín",
-    "italia", "roma", "japón", "tokio", "india",
-    "israel", "gaza", "palestina", "ucrania", "irán", "iran",
-    "siria", "egipto", "nigeria", "kenia", "sudáfrica",
-    "australia", "canadá", "nueva york", "washington",
-    "miami", "california", "texas", "florida", "georgia",
+    # Anglófonos
+    "londres", "london", "reino unido", "británic",
+    "estados unidos", "estadounidense", "norteamerican",
+    "nueva york", "washington", "miami", "california", "texas", "florida", "georgia",
     "ee. uu.", "eeuu", "usa",
+    "australia", "australian", "canadá", "canadiense",
+    # Latinoamérica (excepto Colombia)
+    "argentina", "argentin",
+    "méxico", "mexico", "mexican",
+    "chile", "chilen", "santiago",
+    "perú", "peru", "peruan", "limeñ",
+    "brasil", "brasileñ", "brasilero", "brasilera",
+    "venezuela", "venezolan", "caracas", "chavista",
+    "ecuador", "ecuatorian", "quito", "guayaquil",
+    "bolivia", "bolivian", "la paz",
+    "paraguay", "paraguayo", "paraguaya", "asunción",
+    "uruguay", "uruguayo", "uruguaya", "montevideo",
+    # Europa
+    "españa", "español", "española",
+    "francia", "francés", "frances", "francesa", "parís", "paris",
+    "alemania", "alemán", "aleman", "alemana", "berlín",
+    "italia", "italian", "roma",
+    "rusia", "ruso", "rusa", "moscú",
+    # Asia
+    "china", "chino", "china", "beijing", "pekín",
+    "japón", "japonés", "japones", "japonesa", "tokio",
+    "india", "indio", "india",
+    "irán", "iran", "iraní", "irani",
+    # Medio Oriente y África
+    "israel", "israelí", "israeli", "gaza", "palestin",
+    "ucrania", "ucraniano", "ucraniana",
+    "siria", "sirio", "siria",
+    "egipto", "egipcio", "egipcia",
+    "nigeria", "nigerian",
+    "kenia", "kenian",
+    "sudáfrica", "sudafrican",
+    "congo", "congoleñ",
+    # Deportes internacionales
     "valencia cf",
+]
+
+# Términos que deben buscarse como palabra completa para evitar
+# colisiones con nombres colombianos (ej: "lima" dentro de "Tolima").
+PAISES_EXCLUIDOS_EXACTOS = [
+    "lima", "roma", "chile", "india", "la paz",
 ]
 
 # Ruta del archivo Excel

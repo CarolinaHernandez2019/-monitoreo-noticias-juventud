@@ -19,7 +19,8 @@ import json
 
 from config import (CATEGORIAS, CIUDADES_COLOMBIA, CONTEXTO_JUVENTUD, CSV_PATH,
                     EXCEL_PATH, FUENTES, HEADERS, PAISES_EXCLUIDOS,
-                    PATRONES_EXCLUSION, TERMINOS_AMBIGUOS, TERMINOS_JUVENTUD)
+                    PAISES_EXCLUIDOS_EXACTOS, PATRONES_EXCLUSION,
+                    TERMINOS_AMBIGUOS, TERMINOS_JUVENTUD)
 
 
 def contiene_terminos_juventud(texto: str) -> bool:
@@ -162,8 +163,11 @@ def es_noticia_colombia(texto: str, url: str = "") -> bool:
                           'portafolio.co']
     es_medio_colombiano = any(m in url_lower for m in medios_colombianos)
 
-    # Verificar si menciona algún país/ciudad excluida
-    menciona_extranjero = any(contiene_frase(texto_lower, pais) for pais in PAISES_EXCLUIDOS)
+    # Verificar si menciona algún país/ciudad excluida (subcadena para capturar gentilicios)
+    menciona_extranjero = (
+        any(pais in texto_lower for pais in PAISES_EXCLUIDOS)
+        or any(contiene_frase(texto_lower, pais) for pais in PAISES_EXCLUIDOS_EXACTOS)
+    )
 
     # Señales de foco colombiano
     ciudades_colombianas_especificas = [
