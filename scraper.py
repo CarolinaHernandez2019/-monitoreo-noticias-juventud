@@ -28,6 +28,7 @@ def contiene_terminos_juventud(texto: str) -> bool:
     if not texto:
         return False
     texto_lower = texto.lower()
+    url_lower = url.lower()
     return any(termino.lower() in texto_lower for termino in TERMINOS_JUVENTUD)
 
 
@@ -154,15 +155,6 @@ def es_noticia_colombia(texto: str, url: str = "") -> bool:
     texto_lower = texto.lower()
     url_lower = url.lower()
 
-    # Si la URL es de un medio colombiano conocido, se acepta
-    medios_colombianos = ['eltiempo.com', 'elespectador.com', 'bluradio.com',
-                          'noticiascaracol.com', 'pulzo.com', 'diarioadn.co',
-                          'alertabogota.com', 'redmas.com.co', '.gov.co',
-                          '.edu.co', '.org.co', 'lasillavacia.com',
-                          'las2orillas.co', 'lanotaeconomica.com.co',
-                          'portafolio.co']
-    es_medio_colombiano = any(m in url_lower for m in medios_colombianos)
-
     # Verificar si menciona algún país/ciudad excluida (subcadena para capturar gentilicios)
     menciona_extranjero = (
         any(pais in texto_lower for pais in PAISES_EXCLUIDOS)
@@ -175,23 +167,21 @@ def es_noticia_colombia(texto: str, url: str = "") -> bool:
     ]
     menciona_ciudad_colombiana = any(ciudad in texto_lower for ciudad in ciudades_colombianas_especificas)
     menciona_colombia = "colombia" in texto_lower
-    url_colombia = any(
-        patron in url_lower for patron in ("/colombia", "/bogota", "/bogotá", "/nacion", "/nacional")
+    es_fuente_institucional = any(
+        dominio in url_lower for dominio in (".gov.co", ".edu.co", ".org.co")
     )
-    es_fuente_institucional = any(m in url_lower for m in (".gov.co", ".edu.co", ".org.co"))
 
     # Una referencia extranjera descarta la noticia, aunque se publique
     # en un medio colombiano o también mencione una ciudad del país.
     if menciona_extranjero:
         return False
 
-    # Sin referencias extranjeras, se acepta si hay una señal clara de Colombia.
+    # Las fuentes institucionales colombianas tienen contexto nacional por
+    # definición; las fuentes comerciales necesitan una señal territorial.
     return (
         menciona_ciudad_colombiana
         or menciona_colombia
-        or url_colombia
         or es_fuente_institucional
-        or es_medio_colombiano
     )
 
 
