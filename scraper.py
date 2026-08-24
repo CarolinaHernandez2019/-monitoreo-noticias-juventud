@@ -180,11 +180,10 @@ def es_noticia_colombia(texto: str, url: str = "") -> bool:
     )
     es_fuente_institucional = any(m in url_lower for m in (".gov.co", ".edu.co", ".org.co"))
 
-    # Si menciona lugares extranjeros, se vuelve estricta la validación:
-    # solo se acepta si además menciona una ciudad colombiana específica
-    # o proviene de una fuente institucional local.
+    # Una referencia extranjera descarta la noticia, aunque se publique
+    # en un medio colombiano o también mencione una ciudad del país.
     if menciona_extranjero:
-        return menciona_ciudad_colombiana or es_fuente_institucional
+        return False
 
     # Sin referencias extranjeras, se acepta si hay una señal clara de Colombia.
     return (
