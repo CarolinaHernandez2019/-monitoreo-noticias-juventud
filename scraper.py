@@ -28,7 +28,6 @@ def contiene_terminos_juventud(texto: str) -> bool:
     if not texto:
         return False
     texto_lower = texto.lower()
-    url_lower = url.lower()
     return any(termino.lower() in texto_lower for termino in TERMINOS_JUVENTUD)
 
 
