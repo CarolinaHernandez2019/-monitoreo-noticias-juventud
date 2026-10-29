@@ -11,3 +11,8 @@ Notes/
 *_v[0-9]*.py
 generar_guia_word.py
 CV antiguos/
+
+# Reglas para agentes de IA, solo para uso local
+AGENTS.md
+CLAUDE.md
+.claude/
